@@ -1,6 +1,6 @@
 // frontend/src/components/bodega/HistorialSkuModal.tsx
 import { useState, useEffect, useMemo } from 'react'
-import { collection, query, where, orderBy, getDocs } from 'firebase/firestore'
+import { collection, query, where, orderBy, getDocs, or } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
 import type { Movimiento } from '@/types'
 
@@ -21,19 +21,40 @@ export default function HistorialSkuModal({ isOpen, onClose, skuCodigo }: Histor
     const cargarHistorial = async () => {
       setLoading(true)
       try {
-        const q = query(
+        // CORRECCIÓN: Buscar con ambas variantes del código (guiones y espacios)
+        const codigoConEspacios = skuCodigo.replace(/-/g, ' ')
+        const codigoConGuiones = skuCodigo.replace(/\s+/g, '-')
+        
+        // Crear array para almacenar todos los movimientos
+        let todosMovimientos: Movimiento[] = []
+        
+        // Buscar con código con espacios
+        const q1 = query(
           collection(db, 'movimientos'),
-          where('skuCodigo', '==', skuCodigo),
+          where('skuCodigo', '==', codigoConEspacios),
           orderBy('createdAt', 'desc')
         )
-
-        const snapshot = await getDocs(q)
-        const movimientosData = snapshot.docs.map((doc) => ({
+        const snapshot1 = await getDocs(q1)
+        todosMovimientos = snapshot1.docs.map((doc) => ({
           id: doc.id,
           ...doc.data()
         })) as Movimiento[]
 
-        setMovimientos(movimientosData)
+        // Si no hay resultados Y los códigos son diferentes, buscar con guiones
+        if (todosMovimientos.length === 0 && codigoConEspacios !== codigoConGuiones) {
+          const q2 = query(
+            collection(db, 'movimientos'),
+            where('skuCodigo', '==', codigoConGuiones),
+            orderBy('createdAt', 'desc')
+          )
+          const snapshot2 = await getDocs(q2)
+          todosMovimientos = snapshot2.docs.map((doc) => ({
+            id: doc.id,
+            ...doc.data()
+          })) as Movimiento[]
+        }
+
+        setMovimientos(todosMovimientos)
       } catch (error) {
         console.error('Error al cargar historial:', error)
       } finally {
@@ -66,9 +87,9 @@ export default function HistorialSkuModal({ isOpen, onClose, skuCodigo }: Histor
   }
 
   const formatCantidad = (cantidad: number, tipo: string) => {
-    const signo = tipo === 'egreso' ? '-' : '+'
-    const color = tipo === 'egreso' ? 'text-red-600' : 'text-green-600'
-    return <span className={`font-bold ${color}`}>{signo}{Math.abs(cantidad).toLocaleString()} U</span>
+    const signo = cantidad >= 0 ? '+' : ''
+    const color = cantidad < 0 ? 'text-red-600' : 'text-green-600'
+    return <span className={`font-bold ${color}`}>{signo}{cantidad.toLocaleString()} U</span>
   }
 
   const totalesPorTipo = useMemo(() => {
@@ -80,9 +101,10 @@ export default function HistorialSkuModal({ isOpen, onClose, skuCodigo }: Histor
     }
 
     movimientos.forEach((m) => {
-      if (m.tipo in totales) {
-        totales[m.tipo as keyof typeof totales] += Math.abs(m.cantidad)
-      }
+      if (m.tipo === 'ingreso') totales.ingreso += Math.abs(m.cantidad)
+      else if (m.tipo === 'egreso') totales.egreso += Math.abs(m.cantidad)
+      else if (m.tipo === 'reingreso') totales.reingreso += Math.abs(m.cantidad)
+      else if (m.tipo === 'ajuste') totales.ajuste += Math.abs(m.cantidad)
     })
 
     return totales

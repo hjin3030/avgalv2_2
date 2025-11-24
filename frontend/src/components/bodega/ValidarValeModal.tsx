@@ -1,8 +1,11 @@
+// frontend/src/components/bodega/ValidarValeModal.tsx
+
 import { useState } from 'react'
-import { doc, updateDoc, collection, addDoc, Timestamp, serverTimestamp } from 'firebase/firestore'
+import { doc, updateDoc, collection, Timestamp, runTransaction } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
 import { useAuth } from '@/hooks/useAuth'
-import type { Vale } from '@/types'
+import type { Vale, ValeDetalle, UserProfile } from '@/types'
+import { getSkuNombre } from '@/utils/skuHelpers'
 
 interface ValidarValeModalProps {
   isOpen: boolean
@@ -14,7 +17,7 @@ interface ValidarValeModalProps {
 export default function ValidarValeModal(
   { isOpen, onClose, onConfirm, vale }: ValidarValeModalProps
 ) {
-  const profile = useAuth()
+  const { profile } = useAuth() as { profile: UserProfile | null }
   const [accion, setAccion] = useState<'validar' | 'rechazar'>('validar')
   const [observaciones, setObservaciones] = useState('')
   const [loading, setLoading] = useState(false)
@@ -29,15 +32,16 @@ export default function ValidarValeModal(
     }
     setLoading(true)
     setError(null)
+
     try {
       const valeRef = doc(db, 'vales', vale.id)
       const ahora = new Date()
+      const timestamp = Timestamp.fromDate(ahora)
       const updateData: any = {
         estado: accion === 'validar' ? 'validado' : 'rechazado',
-        updatedAt: Timestamp.fromDate(ahora)
+        updatedAt: timestamp
       }
 
-      // Solo si el vale estaba pendiente, registra fechaValidacion y horaValidacion
       if (vale.estado === 'pendiente') {
         updateData.fechaValidacion = ahora.toISOString().split('T')[0]
         updateData.horaValidacion = ahora.toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' })
@@ -48,25 +52,63 @@ export default function ValidarValeModal(
       if (profile?.rol) updateData.validadoPorRol = profile.rol
       if (observaciones.trim()) updateData.observaciones = observaciones.trim()
 
-      await updateDoc(valeRef, updateData)
+      if (accion === 'validar' && vale.estado === 'pendiente' && vale.tipo === 'ingreso') {
+        await runTransaction(db, async (transaction) => {
+          // PASO 1: TODAS LAS LECTURAS PRIMERO (OBLIGATORIO)
+          const stockReads = []
+          for (const detalle of vale.detalles as ValeDetalle[]) {
+            const stockRef = doc(db, 'stock', detalle.sku)
+            const stockSnap = await transaction.get(stockRef)
+            stockReads.push({
+              ref: stockRef,
+              snap: stockSnap,
+              detalle: detalle
+            })
+          }
 
-      if (accion === 'validar') {
-        for (const detalle of vale.detalles) {
-          await addDoc(collection(db, 'movimientos'), {
-            tipo: vale.tipo,
-            skuCodigo: detalle.sku,
-            skuNombre: detalle.skuNombre,
-            cantidad: detalle.totalUnidades,
-            valeId: vale.id,
-            valeReferencia: vale.correlativoDia ? `${vale.tipo.toUpperCase()} #${vale.correlativoDia}` : '',
-            valeEstado: 'validado',
-            fecha: updateData.fechaValidacion,
-            origenNombre: vale.origenNombre,
-            destinoNombre: vale.destinoNombre,
-            usuarioNombre: profile?.nombre || '',
-            createdAt: serverTimestamp(),
-          })
-        }
+          // PASO 2: AHORA SÍ, TODAS LAS ESCRITURAS
+          transaction.update(valeRef, updateData)
+
+          for (const item of stockReads) {
+            let nuevaCantidad: number
+            if (item.snap.exists()) {
+              const stockActual = item.snap.data().cantidad || 0
+              nuevaCantidad = stockActual + item.detalle.totalUnidades
+              transaction.update(item.ref, {
+                cantidad: nuevaCantidad,
+                updatedAt: timestamp
+              })
+            } else {
+              nuevaCantidad = item.detalle.totalUnidades
+              transaction.set(item.ref, {
+                skuCodigo: item.detalle.sku,
+                cantidad: nuevaCantidad,
+                createdAt: timestamp,
+                updatedAt: timestamp
+              })
+            }
+
+            const movimientoRef = doc(collection(db, 'movimientos'))
+            transaction.set(movimientoRef, {
+              tipo: 'ingreso',
+              skuCodigo: item.detalle.sku,
+              skuNombre: item.detalle.skuNombre || getSkuNombre([], item.detalle.sku),
+              cantidad: item.detalle.totalUnidades,
+              valeId: vale.id,
+              valeReferencia: vale.correlativoDia ? `${vale.tipo.toUpperCase()} #${vale.correlativoDia}` : '',
+              valeEstado: 'validado',
+              fecha: updateData.fechaValidacion,
+              hora: updateData.horaValidacion,
+              origenNombre: vale.origenNombre,
+              destinoNombre: vale.destinoNombre,
+              usuarioNombre: profile?.nombre || '',
+              createdAt: timestamp,
+              timestamp,
+            })
+          }
+        })
+      } else {
+        await updateDoc(valeRef, updateData)
       }
 
       onConfirm()
@@ -102,7 +144,7 @@ export default function ValidarValeModal(
             <div className="text-gray-700">Destino: <b>{vale.destinoNombre}</b></div>
             <div className="text-gray-700">Productos:</div>
             <ul className="list-disc ml-5 text-sm mb-2">
-              {vale.detalles.map((d: any, i: number) => (
+              {vale.detalles.map((d: ValeDetalle, i: number) => (
                 <li key={i}>{d.sku} - {d.skuNombre}: {d.totalUnidades} uds.</li>
               ))}
             </ul>
@@ -113,7 +155,7 @@ export default function ValidarValeModal(
               <select
                 className="rounded border px-3 py-2 w-full"
                 value={accion}
-                onChange={e => setAccion(e.target.value as any)}
+                onChange={e => setAccion(e.target.value as 'validar' | 'rechazar')}
                 disabled={loading}
               >
                 <option value="validar">Validar</option>

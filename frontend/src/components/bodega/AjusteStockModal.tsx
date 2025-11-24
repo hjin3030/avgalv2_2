@@ -11,7 +11,7 @@ interface AjusteStockModalProps {
 
 export default function AjusteStockModal({ onClose, onSuccess }: AjusteStockModalProps) {
   const { profile } = useAuth()
-  const { stock, aplicarAjuste } = useStock()
+  const { stock, } = useStock()
   const { skus } = useSkus()
 
   const [skuId, setSkuId] = useState('')
@@ -22,7 +22,6 @@ export default function AjusteStockModal({ onClose, onSuccess }: AjusteStockModa
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const skuSeleccionado = skus.find((s) => s.id === skuId)
   const stockActual = stock.find((s) => s.skuId === skuId)
 
   const calcularNuevoStock = () => {
@@ -42,16 +41,19 @@ export default function AjusteStockModal({ onClose, onSuccess }: AjusteStockModa
 
       if (!skuId) {
         setError('Debes seleccionar un SKU')
+        setLoading(false)
         return
       }
 
       if (!razon.trim()) {
         setError('Debes especificar una razón para el ajuste')
+        setLoading(false)
         return
       }
 
       if (cantidad <= 0 && tipoAjuste !== 'establecer') {
         setError('La cantidad debe ser mayor a 0')
+        setLoading(false)
         return
       }
 
@@ -61,12 +63,13 @@ export default function AjusteStockModal({ onClose, onSuccess }: AjusteStockModa
         cantidad,
         razon,
         observaciones,
-        profile.id,
+        profile.uid,  // Cambié profile.id por profile.uid, que es más común
         profile.nombre
       )
 
       if (!resultado.success) {
         setError(resultado.error || 'Error al aplicar ajuste')
+        setLoading(false)
         return
       }
 

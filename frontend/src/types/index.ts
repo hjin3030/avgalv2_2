@@ -1,15 +1,17 @@
 // frontend/src/types/index.ts
 
+
 // ========================================
 // TIPOS BASE
 // ========================================
 export type UserRole = 'superadmin' | 'admin' | 'supervisor' | 'colaborador'
 
+
 // ========================================
 // USERS
 // ========================================
 export interface UserProfile {
-  uid: string // ✅ AGREGAR ESTE CAMPO
+  uid: string
   nombre: string
   email: string
   rol: UserRole
@@ -38,6 +40,7 @@ export interface Sku {
   updatedAt?: any
 }
 
+
 // ========================================
 // PABELLONES
 // ========================================
@@ -45,14 +48,16 @@ export interface LineaProduccion {
   numeroLinea: number
   capacidadAves: number
   cantidadAves: number
-  fechaNacimiento: string // YYYY-MM-DD
+  fechaNacimiento: string
   activa: boolean
 }
+
 
 export interface LineaProduccionConEdad extends LineaProduccion {
   semanasEdad: number
   porcentajeOcupacion: number
 }
+
 
 export interface PabellonConfiguracion {
   razaAves: string
@@ -61,6 +66,7 @@ export interface PabellonConfiguracion {
   temperaturaOptima: number
   humedad: number
 }
+
 
 export interface Pabellon {
   id: string
@@ -78,6 +84,7 @@ export interface Pabellon {
   updatedAt?: any
 }
 
+
 // ========================================
 // DESTINOS
 // ========================================
@@ -94,6 +101,7 @@ export interface Destino {
   updatedAt?: any
 }
 
+
 // ========================================
 // ORÍGENES
 // ========================================
@@ -105,6 +113,7 @@ export interface Origen {
   createdAt?: any
   updatedAt?: any
 }
+
 
 // ========================================
 // TRANSPORTISTAS
@@ -123,6 +132,7 @@ export interface Transportista {
   updatedAt?: any
 }
 
+
 // ========================================
 // VALES
 // ========================================
@@ -130,6 +140,7 @@ export interface ValeDetalle {
   id?: string
   skuId: string
   skuCodigo: string
+  sku: string
   skuNombre: string
   cajas: number
   bandejas: number
@@ -137,28 +148,41 @@ export interface ValeDetalle {
   totalUnidades: number
 }
 
+
 export interface Vale {
   id: string
   correlativoDia: number
+  numeroGlobal?: string | number
+  tipo: string
   fecha: string
+  hora?: string
   estado: 'pendiente' | 'validado' | 'rechazado' | 'completado' | 'anulado'
-  pabellonId: string
-  pabellonNombre: string
-  destinoId: string
-  destinoNombre: string
+  origenId?: string
+  origenNombre?: string
+  pabellonId?: string
+  pabellonNombre?: string
+  destinoId?: string
+  destinoNombre?: string
   transportistaId?: string
   transportistaNombre?: string
   detalles: ValeDetalle[]
-  totalCajas: number
-  totalBandejas: number
-  totalUnidades: number
+  totalCajas?: number
+  totalBandejas?: number
+  totalUnidades?: number
   observaciones?: string
-  creadoPor: string
+  comentario?: string
+  creadoPor?: string
+  usuarioCreadorNombre?: string
+  usuarioCreadorRol?: string
   validadoPor?: string
+  usuarioValidadorNombre?: string
   fechaValidacion?: string
+  horaValidacion?: string
+  timestamp?: any
   createdAt?: any
   updatedAt?: any
 }
+
 
 // ========================================
 // STOCK (ACTUALIZADO PARA BODEGA)
@@ -169,39 +193,43 @@ export interface Desglose {
   unidades: number
 }
 
+
 export interface UltimoMovimiento {
   cantidad: number
   desglose: Desglose
-  fecha: any // Timestamp
+  fecha: any
   valeId?: string
   valeCorrelativo?: string
   origenNombre?: string
   destinoNombre?: string
 }
 
+
 export interface Stock {
   id: string
   skuId: string
   skuCodigo: string
   skuNombre: string
-  cantidad: number // ✅ Puede ser negativo
+  cantidad: number
+  disponible?: number
+  nivelMinimo?: number
+  totalUnidades?: number
   minimo: number
   maximo: number
   ubicacion: string
-  
-  // Últimos movimientos
   ultimoIngreso?: UltimoMovimiento
   ultimoReingreso?: UltimoMovimiento
   ultimoEgreso?: UltimoMovimiento
-  
   createdAt?: any
-  updatedAt: any
+  updatedAt?: any
 }
+
 
 // ========================================
 // MOVIMIENTOS (NUEVO PARA BODEGA)
 // ========================================
 export type TipoMovimiento = 'ingreso' | 'egreso' | 'reingreso' | 'ajuste'
+
 
 export interface Movimiento {
   id: string
@@ -209,30 +237,26 @@ export interface Movimiento {
   skuCodigo: string
   skuNombre: string
   tipo: TipoMovimiento
-  cantidad: number // positivo o negativo
+  cantidad: number
   desglose: Desglose
-  
-  // Origen/Destino
   origenId?: string
   origenNombre?: string
   destinoId?: string
   destinoNombre?: string
-  
-  // Vale relacionado
   valeId?: string
   valeCorrelativo?: string
-  
-  // Específico para AJUSTE
+  valeReferencia?: string
+  hora?: string
   stockAnterior?: number
   stockNuevo?: number
   razon?: string
-  
-  // Auditoría
   usuarioId: string
   usuarioNombre: string
-  fecha: any // Timestamp de Firestore
+  fecha: any
+  timestamp?: any
   observaciones?: string
 }
+
 
 // ========================================
 // AUDITORÍA
@@ -251,8 +275,9 @@ export interface AuditLog {
   }
   ip?: string
   navegador?: string
-  prioridad?: 'ALTA' | 'MEDIA' | 'BAJA' // ← AGREGADO para ajustes
+  prioridad?: 'ALTA' | 'MEDIA' | 'BAJA'
 }
+
 
 // ========================================
 // MÉTRICAS Y REPORTES
@@ -267,6 +292,7 @@ export interface MetricaProductividad {
   eficiencia: number
 }
 
+
 export interface MetricaStock {
   sku: string
   cantidad: number
@@ -274,6 +300,7 @@ export interface MetricaStock {
   maximo: number
   estado: 'bajo' | 'normal' | 'alto'
 }
+
 
 // ========================================
 // SYSTEM CONFIG

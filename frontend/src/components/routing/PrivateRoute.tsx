@@ -1,10 +1,11 @@
-// Archivo: frontend/src/components/routing/PrivateRoute.tsx
+// frontend/src/components/routing/PrivateRoute.tsx
 
 import { Navigate } from 'react-router-dom'
 import { useAuth } from '@/hooks/useAuth'
+import type { ReactElement } from 'react'
 
 interface PrivateRouteProps {
-  children: JSX.Element
+  children: ReactElement
   requiredRoles?: string[]
   requiredModule?: string
 }
@@ -14,7 +15,7 @@ export function PrivateRoute({
   requiredRoles, 
   requiredModule 
 }: PrivateRouteProps) {
-  const { user, profile, loading, canAccessModule, hasRole } = useAuth()
+  const { user, profile, loading, hasPermission } = useAuth()
   
   // Mostrar loading mientras verifica autenticación
   if (loading) {
@@ -34,12 +35,12 @@ export function PrivateRoute({
   }
   
   // Verificar rol si es necesario
-  if (requiredRoles && !hasRole(requiredRoles as any)) {
+  if (requiredRoles && !requiredRoles.includes(profile.rol)) {
     return <Navigate to="/sin-acceso" replace />
   }
   
   // Verificar acceso al módulo si es necesario
-  if (requiredModule && !canAccessModule(requiredModule)) {
+  if (requiredModule && !hasPermission(`module:${requiredModule}`)) {
     return <Navigate to="/sin-acceso" replace />
   }
   

@@ -3,7 +3,7 @@
 import { db } from '@/lib/firebase'
 import { doc, setDoc, getDoc, collection, query, where, getDocs, Timestamp, orderBy } from 'firebase/firestore'
 import { todayDateString } from './formatHelpers'
-import { CONTADORES_PRODUCCION, PABELLONES_AUTOMATICOS } from './constants'
+import { CONTADORES_PRODUCCION} from './constants'
 
 export interface ContadorValor {
   contadorId: number

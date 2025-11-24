@@ -22,6 +22,8 @@ export interface Sku {
   observacion?: string;
   createdAt?: any;
   updatedAt?: any;
+  unidadesPorCaja: number;
+  unidadesPorBandeja: number;
 }
 
 interface OperationResult {

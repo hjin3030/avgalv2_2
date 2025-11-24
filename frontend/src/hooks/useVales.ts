@@ -1,6 +1,4 @@
-// frontend/src/hooks/useVales.ts
-
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { collection, query, orderBy, onSnapshot } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 
@@ -32,13 +30,12 @@ export function useVales() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
+  const loadVales = useCallback(() => {
     setLoading(true);
     setError(null);
 
     try {
       const q = query(collection(db, 'vales'), orderBy('createdAt', 'desc'));
-
       const unsubscribe = onSnapshot(
         q,
         (snapshot) => {
@@ -46,7 +43,6 @@ export function useVales() {
             id: doc.id,
             ...doc.data(),
           })) as Vale[];
-
           setVales(valesData);
           setLoading(false);
         },
@@ -56,8 +52,7 @@ export function useVales() {
           setLoading(false);
         }
       );
-
-      return () => unsubscribe();
+      return unsubscribe;
     } catch (err: any) {
       console.error('Error en useVales setup:', err);
       setError(err.message);
@@ -65,9 +60,22 @@ export function useVales() {
     }
   }, []);
 
+  useEffect(() => {
+    const unsubscribe = loadVales();
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
+  }, [loadVales]);
+
+  // Función para forzar recarga manual
+  const refetch = () => {
+    loadVales();
+  };
+
   return {
     vales,
     loading,
     error,
+    refetch,
   };
 }

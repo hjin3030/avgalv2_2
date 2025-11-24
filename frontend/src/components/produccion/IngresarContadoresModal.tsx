@@ -4,9 +4,12 @@ import { useState, useMemo } from 'react'
 import { CONTADORES_PRODUCCION, PABELLONES_AUTOMATICOS } from '@/utils/constants'
 import { guardarContadores } from '@/utils/produccionHelpers'
 import { useAuth } from '@/hooks/useAuth'
+import {Pabellon} from '@/types'
 
 interface IngresarContadoresModalProps {
   isOpen: boolean
+  pabellones: Pabellon[]
+  fecha: string
   onClose: () => void
   onContadoresGuardados?: () => void
 }

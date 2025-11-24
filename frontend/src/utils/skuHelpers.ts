@@ -11,8 +11,8 @@ export function calcularTotalUnidades(
   unidades: number,
   sku: Sku
 ): number {
-  const unidadesDeCajas = cajas * sku.unidadesPorCaja
-  const unidadesDeBandejas = bandejas * sku.unidadesPorBandeja
+  const unidadesDeCajas = cajas * (sku.unidadesPorCaja || 1)
+  const unidadesDeBandejas = bandejas * (sku.unidadesPorBandeja || 1)
   return unidadesDeCajas + unidadesDeBandejas + unidades
 }
 
@@ -21,12 +21,10 @@ export function calcularTotalUnidades(
  * @example convertirUnidadesAFormato(250, sku) => { cajas: 1, bandejas: 2, unidades: 10 }
  */
 export function convertirUnidadesAFormato(totalUnidades: number, sku: Sku) {
-  const cajas = Math.floor(totalUnidades / sku.unidadesPorCaja)
-  const restoDeCajas = totalUnidades % sku.unidadesPorCaja
-  
-  const bandejas = Math.floor(restoDeCajas / sku.unidadesPorBandeja)
-  const unidades = restoDeCajas % sku.unidadesPorBandeja
-
+  const cajas = Math.floor(totalUnidades / (sku.unidadesPorCaja || 1))
+  const restoDeCajas = totalUnidades % (sku.unidadesPorCaja || 1)
+  const bandejas = Math.floor(restoDeCajas / (sku.unidadesPorBandeja || 1))
+  const unidades = restoDeCajas % (sku.unidadesPorBandeja || 1)
   return { cajas, bandejas, unidades }
 }
 
@@ -37,11 +35,9 @@ export function validarDetalleVale(detalle: ValeDetalle): { valido: boolean; err
   if (detalle.cajas < 0 || detalle.bandejas < 0 || detalle.unidades < 0) {
     return { valido: false, error: 'Las cantidades no pueden ser negativas' }
   }
-
   if (detalle.totalUnidades === 0) {
     return { valido: false, error: 'El total de unidades debe ser mayor a 0' }
   }
-
   return { valido: true }
 }
 
@@ -67,7 +63,7 @@ export function ordenarSkus(skus: Sku[]): Sku[] {
 }
 
 /**
- * ✅ NUEVO: Agrupa SKUs por tipo (blanco/color/mixto)
+ * Agrupa SKUs por tipo (blanco/color/mixto)
  */
 export function agruparSkusPorTipo(skus: Sku[]): Record<string, Sku[]> {
   return skus.reduce((acc, sku) => {
@@ -85,22 +81,34 @@ export function buscarSkuPorCodigo(skus: Sku[], codigo: string): Sku | undefined
 }
 
 /**
+ * ✅ CORREGIDO: Obtiene el nombre del SKU por código (evita "Desconocido" si existe en catálogo)
+ */
+export function getSkuNombre(skus: Sku[], codigo: string): string {
+  const skuObj = buscarSkuPorCodigo(skus, codigo)
+  return skuObj ? skuObj.nombre : 'Desconocido'
+}
+
+/**
  * Verifica si el stock está bajo el nivel mínimo
  */
 export function stockBajoMinimo(stock: Stock): boolean {
-  return stock.disponible < stock.nivelMinimo
+  const disponible = stock.disponible ?? 0
+  const nivelMinimo = stock.nivelMinimo ?? 0
+  return disponible < nivelMinimo
 }
 
 /**
- * ✅ NUEVO: Calcula el porcentaje de stock disponible
+ * Calcula el porcentaje de stock disponible
  */
 export function calcularPorcentajeDisponible(stock: Stock): number {
-  if (stock.totalUnidades === 0) return 0
-  return (stock.disponible / stock.totalUnidades) * 100
+  const disponible = stock.disponible ?? 0
+  const totalUnidades = stock.totalUnidades ?? 0
+  if (totalUnidades === 0) return 0
+  return (disponible / totalUnidades) * 100
 }
 
 /**
- * ✅ NUEVO: Determina el nivel de alerta de stock
+ * Determina el nivel de alerta de stock
  * @returns 'critico' (<25%), 'bajo' (25-50%), 'normal' (>50%)
  */
 export function nivelAlertaStock(stock: Stock): 'critico' | 'bajo' | 'normal' {

@@ -2,10 +2,8 @@
 
 import type { 
   Pabellon, 
-  PabellonConEdades, 
   LineaProduccion, 
-  LineaProduccionConEdad,
-  PabellonMetrics 
+  LineaProduccionConEdad
 } from '@/types'
 
 /**
@@ -39,10 +37,11 @@ export function agregarEdadALinea(linea: LineaProduccion): LineaProduccionConEda
 }
 
 /**
- * Convierte Pabellon a PabellonConEdades agregando cálculos a todas las líneas
+ * Convierte Pabellon a Pabellon con edades agregando cálculos a todas las líneas
+ * Maneja opcionalidad de lineas con ?? para evitar error posible undefined
  */
-export function agregarEdadesAPabellon(pabellon: Pabellon): PabellonConEdades {
-  const lineasConEdad = pabellon.lineas.map(agregarEdadALinea)
+export function agregarEdadesAPabellon(pabellon: Pabellon): Pabellon & { porcentajeOcupacionTotal: number; lineas: LineaProduccionConEdad[] } {
+  const lineasConEdad = (pabellon.lineas ?? []).map(agregarEdadALinea)
   const porcentajeOcupacionTotal = calcularPorcentajeOcupacion(
     pabellon.cantidadTotal,
     pabellon.capacidadTotal
@@ -56,23 +55,21 @@ export function agregarEdadesAPabellon(pabellon: Pabellon): PabellonConEdades {
 }
 
 /**
- * ✅ NUEVO: Calcula métricas clave del pabellón (KPIs simples)
+ * Calcula métricas clave del pabellón (KPIs simples)
+ * Maneja optional chaining para evitar error con propiedades opcionales
  */
-export function calcularMetricasPabellon(pabellon: Pabellon): PabellonMetrics {
-  const lineasActivas = pabellon.lineas.filter(l => l.activa)
+export function calcularMetricasPabellon(pabellon: Pabellon) {
+  const lineasActivas = (pabellon.lineas ?? []).filter(l => l.activa)
   const avesActivas = lineasActivas.reduce((sum, l) => sum + l.cantidadAves, 0)
-  
-  // Edad promedio ponderada por cantidad de aves
+
   const sumaEdadesPonderadas = lineasActivas.reduce((sum, linea) => {
     const edad = calcularEdadEnSemanas(linea.fechaNacimiento)
     return sum + (edad * linea.cantidadAves)
   }, 0)
   const semanasPromedioEdad = avesActivas > 0 ? sumaEdadesPonderadas / avesActivas : 0
 
-  // Producción esperada = meta por ave * total aves activas
-  const produccionEsperadaDiaria = pabellon.configuracion.metaProduccionDiaria * avesActivas
+  const produccionEsperadaDiaria = (pabellon.configuracion?.metaProduccion ?? 0) * avesActivas
 
-  // Porcentaje de ocupación total
   const porcentajeOcupacion = calcularPorcentajeOcupacion(
     pabellon.cantidadTotal,
     pabellon.capacidadTotal
@@ -88,7 +85,7 @@ export function calcularMetricasPabellon(pabellon: Pabellon): PabellonMetrics {
 }
 
 /**
- * ✅ NUEVO: Determina si una línea está en edad productiva óptima (20-70 semanas)
+ * Determina si una línea está en edad productiva óptima (20-70 semanas)
  * Las gallinas producen mejor entre las 20 y 70 semanas de edad
  */
 export function esEdadProductivaOptima(fechaNacimiento: string): boolean {
@@ -97,7 +94,7 @@ export function esEdadProductivaOptima(fechaNacimiento: string): boolean {
 }
 
 /**
- * ✅ NUEVO: Calcula el nivel de alerta según ocupación
+ * Calcula el nivel de alerta según ocupación
  * @returns 'alto' (>85%), 'medio' (65-85%), 'bajo' (<65%)
  */
 export function nivelAlertaOcupacion(porcentaje: number): 'alto' | 'medio' | 'bajo' {
@@ -108,9 +105,10 @@ export function nivelAlertaOcupacion(porcentaje: number): 'alto' | 'medio' | 'ba
 
 /**
  * Obtiene todas las líneas activas de un pabellón
+ * Maneja optional chaining para evitar error si lineas es undefined
  */
 export function obtenerLineasActivas(pabellon: Pabellon): LineaProduccion[] {
-  return pabellon.lineas.filter(l => l.activa)
+  return (pabellon.lineas ?? []).filter(l => l.activa)
 }
 
 /**

@@ -18,7 +18,7 @@ const formatearFecha = (fechaStr: string): string => {
 }
 
 export default function Home() {
-  const { profile, hasPermission } = useAuth()
+  const {hasPermission } = useAuth()
   const navigate = useNavigate()
   const { vales } = useVales()
 
@@ -28,7 +28,8 @@ export default function Home() {
   const [pesoBaldeAyer, setPesoBaldeAyer] = useState<number | null>(null)
   const [pesoBaldePendiente, setPesoBaldePendiente] = useState(true)
   const [valesPendientes, setValesPendientes] = useState(0)
-  const [cargando, setCargando] = useState(true)
+  const [, setCargando] = useState(true)
+
 
   const [produccionTotal, setProduccionTotal] = useState(0)
   const [produccionAyer, setProduccionAyer] = useState(0)
@@ -139,7 +140,7 @@ export default function Home() {
         }, { ingreso: 0, egreso: 0, reingreso: 0 })
         setValesDistribucionAyer(distribucionAyer)
 
-        let skuMovimientos: Record<string, { cantidad: number; tipo: string }> = {}
+        const skuMovimientos: Record<string, { cantidad: number; tipo: string }> = {}
         valesHoy.forEach(vale => {
           vale.detalles?.forEach(detalle => {
             const key = `${detalle.sku}:${vale.tipo}`

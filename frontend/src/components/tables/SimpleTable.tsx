@@ -1,4 +1,5 @@
 // frontend/src/components/tables/SimpleTable.tsx
+
 import { useState, useMemo } from 'react'
 import { formatNumber, formatBoolean, calcularOcupacion } from '@/lib/formatters'
 import type { UserRole } from '@/types'

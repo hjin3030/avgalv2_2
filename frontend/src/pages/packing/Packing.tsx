@@ -53,6 +53,9 @@ export default function Packing() {
     )
   }, [vales])
 
+  // MOVER LA FUNCIÓN ANTES DEL useMemo QUE LA USA
+  const getNombrePabellon = (id) => pabellones.find((p) => p.id === id)?.nombre || 'N/A'
+
   const valesSorted = useMemo(() => {
     const sorted = [...valesHoy]
     sorted.sort((a, b) => {
@@ -105,9 +108,7 @@ export default function Packing() {
       return 0
     })
     return sorted
-  }, [valesHoy, sortCol, sortDir])
-
-  const getNombrePabellon = (id) => pabellones.find((p) => p.id === id)?.nombre || 'N/A'
+  }, [valesHoy, sortCol, sortDir, pabellones])
 
   const getEstadoBadge = (estado) => {
     const colores = {
@@ -197,7 +198,11 @@ export default function Packing() {
         </div>
       )
       case 'pabellon': return (<span className="px-3 py-1 bg-purple-100 text-purple-800 rounded-full text-sm font-semibold">{getNombrePabellon(vale.origenId)}</span>)
-      case 'skus': return (<div className="text-sm text-gray-700 font-medium">{vale.detalles?.map((d) => d.sku).join(', ') || 'N/A'}</div>)
+      case 'skus': return (
+        <div className="text-sm text-gray-700 font-medium max-w-xs overflow-x-auto whitespace-nowrap">
+          {vale.detalles?.map((d) => d.sku).join(', ') || 'N/A'}
+        </div>
+      )
       case 'total': return (<div className="font-bold text-xl text-gray-900">{vale.totalUnidades?.toLocaleString('es-CL')} U
         <div className="text-sm text-gray-600 font-semibold">{desglose.cajas}C · {desglose.bandejas}B · {desglose.unidades}U</div>
       </div>)

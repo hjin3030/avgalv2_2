@@ -57,7 +57,7 @@ export default function CartolaModal({ isOpen, onClose }: CartolaModalProps) {
   const [itemsPorPagina, setItemsPorPagina] = useState(25)
 
   const [valeDetalle, setValeDetalle] = useState<ValeDetalle | null>(null)
-  const [cargandoVale, setCargandoVale] = useState(false)
+  const [, setCargandoVale] = useState(false)
 
   useEffect(() => {
     if (isOpen && movimientos.length === 0) {

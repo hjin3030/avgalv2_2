@@ -1,6 +1,4 @@
-// frontend/src/hooks/useStock.ts
-
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { collection, query, onSnapshot } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 
@@ -22,13 +20,12 @@ export function useStock() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
+  const loadStock = useCallback(() => {
     setLoading(true);
     setError(null);
 
     try {
       const q = query(collection(db, 'stock'));
-
       const unsubscribe = onSnapshot(
         q,
         (snapshot) => {
@@ -36,7 +33,6 @@ export function useStock() {
             id: doc.id,
             ...doc.data(),
           })) as Stock[];
-
           setStock(stockData);
           setLoading(false);
         },
@@ -47,7 +43,7 @@ export function useStock() {
         }
       );
 
-      return () => unsubscribe();
+      return unsubscribe;
     } catch (err: any) {
       console.error('Error en useStock setup:', err);
       setError(err.message);
@@ -55,9 +51,30 @@ export function useStock() {
     }
   }, []);
 
-  // ✅ HELPER: Obtener stock por SKU código
+  useEffect(() => {
+    const unsubscribe = loadStock();
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
+  }, [loadStock]);
+
   const getStockBySkuCodigo = (skuCodigo: string): Stock | undefined => {
     return stock.find((s) => s.skuCodigo === skuCodigo);
+  };
+
+  const getStockSkuNombre = (skuCodigo: string, skus: any[]): string => {
+    const stockItem = stock.find((s) => s.skuCodigo === skuCodigo);
+    if (!stockItem) return 'Desconocido';
+    if (stockItem.skuNombre && stockItem.skuNombre !== 'Desconocido') {
+      return stockItem.skuNombre;
+    }
+    const found = skus?.find((s) => s.codigo === skuCodigo);
+    return found ? found.nombre : 'Desconocido';
+  };
+
+  // Función para forzar recarga manual
+  const refetch = () => {
+    loadStock();
   };
 
   return {
@@ -65,5 +82,7 @@ export function useStock() {
     loading,
     error,
     getStockBySkuCodigo,
+    getStockSkuNombre,
+    refetch, // Nuevo método para recarga manual
   };
 }

@@ -12,7 +12,6 @@ import SimpleTable from '@/components/tables/SimpleTable'
 import ConfirmChangeModal from '@/components/configuracion/ConfirmChangeModal'
 import Card from '@/components/ui/Card'
 import Alert from '@/components/ui/Alert'
-import type { Sku, Pabellon, Destino, Origen, Transportista } from '@/types'
 
 type TabType = 'skus' | 'pabellones' | 'destinos' | 'origenes' | 'transportistas'
 
@@ -66,8 +65,8 @@ export default function Configuracion() {
       id,
       modulo,
       nombre,
-      activo: nuevoEstadoYaInvertido,        // ← Nuevo estado (ya invertido)
-      activoAnterior: !nuevoEstadoYaInvertido  // ← Estado anterior (invertir de vuelta)
+      activo: nuevoEstadoYaInvertido,           // ← Nuevo estado (ya invertido)
+      activoAnterior: !nuevoEstadoYaInvertido   // ← Estado anterior (invertir de vuelta)
     })
     setModalAbierto(true)
   }

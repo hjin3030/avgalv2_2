@@ -12,8 +12,6 @@ import HistorialSkuModal from '@/components/bodega/HistorialSkuModal'
 import AjusteStockModal from '@/components/bodega/AjusteStockModal'
 import DetalleValeModal from '@/components/bodega/DetalleValeModal'
 import { todayDateString, justDate } from '@/utils/formatHelpers'
-import { getSkuNombre } from '@/utils/constants'
-
 
 export default function BodegaPage() {
   const { profile } = useAuth()
@@ -22,7 +20,6 @@ export default function BodegaPage() {
   const { pabellones } = usePabellones()
   const { skus } = useSkus()
   const { movimientos } = useMovimientos()
-
 
   const [mostrarCrearVale, setMostrarCrearVale] = useState(false)
   const [mostrarValidarVale, setMostrarValidarVale] = useState(false)
@@ -33,32 +30,17 @@ export default function BodegaPage() {
   const [skuSeleccionado, setSkuSeleccionado] = useState<string>('')
   const [mostrarDetalleValeModal, setMostrarDetalleValeModal] = useState(false)
 
-
-  // Colapsar secciones
   const [stockColapsado, setStockColapsado] = useState(false)
   const [valesColapsado, setValesColapsado] = useState(false)
 
-
-  // Ordenamiento stock
   const [ordenColStock, setOrdenColStock] = useState('sku')
   const [ordenAscStock, setOrdenAscStock] = useState(true)
 
-
-  // Ordenamiento tabla vales del día
   const [ordenColVales, setOrdenColVales] = useState('creacion')
   const [ordenAscVales, setOrdenAscVales] = useState(true)
-  const handleOrdenarVales = (col) => {
-    if (ordenColVales === col) setOrdenAscVales(!ordenAscVales)
-    else {
-      setOrdenColVales(col)
-      setOrdenAscVales(true)
-    }
-  }
-
 
   const isSuperAdmin = profile?.rol === 'superadmin'
   const canViewCartola = profile?.rol === 'superadmin' || profile?.rol === 'admin'
-
 
   const fechaActual = new Date().toLocaleDateString('es-CL', {
     weekday: 'long',
@@ -67,8 +49,12 @@ export default function BodegaPage() {
     year: 'numeric'
   })
 
+  // Hook para obtener nombre de SKU desde la colección
+  const getSkuNombre = (codigo: string) => {
+    const sku = skus.find(s => s.codigo === codigo)
+    return sku?.nombre || 'Desconocido'
+  }
 
-  // Vales del día
   const valesHoy = useMemo(() => {
     const hoy = todayDateString()
     return vales.filter((v) => {
@@ -77,9 +63,6 @@ export default function BodegaPage() {
     })
   }, [vales])
 
-
-  // AJUSTE FECHA ACTUALIZACIÓN y HORA PARA CADA VALE (requerimiento)
-  // MODIFICADO: Para vales tipo INGRESO, FECHA ACTUALIZACION SOLO SI ESTA VALIDADO O RECHAZADO
   const getValeFechaActualizacion = (vale) => {
     if (vale.tipo === 'ingreso') {
       if (vale.fechaValidacion && vale.horaValidacion) {
@@ -88,7 +71,6 @@ export default function BodegaPage() {
           hora: vale.horaValidacion
         }
       }
-      // Si pendiente, debe mostrar vacío/guion y no la fecha de creación!
       return {
         fecha: '',
         hora: ''
@@ -101,8 +83,14 @@ export default function BodegaPage() {
     }
   }
 
+  const handleOrdenarVales = (col) => {
+    if (ordenColVales === col) setOrdenAscVales(!ordenAscVales)
+    else {
+      setOrdenColVales(col)
+      setOrdenAscVales(true)
+    }
+  }
 
-  // Tabla Vales del Día ordenada
   const valesHoyOrdenados = useMemo(() => {
     const arr = [...valesHoy]
     arr.sort((a, b) => {
@@ -149,15 +137,11 @@ export default function BodegaPage() {
     return arr
   }, [valesHoy, ordenColVales, ordenAscVales])
 
-
-  const valesPendientes = valesHoy.filter(v => v.estado === 'pendiente')
+  const valesPendientes = valesHoy.filter(v => v.estado === 'pendiente' && v.tipo === 'ingreso')
   const skusActivos = useMemo(() => skus.filter(sku => sku.activo === true), [skus])
-  const getNombreSku = getSkuNombre
-
 
   const formatNumber = (num) => Number(num || 0).toLocaleString('es-CL')
   const getNombrePabellon = (id) => pabellones.find((p) => p.id === id)?.nombre || 'N/A'
-
 
   const getTipoBadge = (tipo) => {
     const colores = {
@@ -172,7 +156,6 @@ export default function BodegaPage() {
     )
   }
 
-
   const getEstadoBadge = (estado) => {
     const colores = {
       pendiente: 'bg-yellow-100 text-yellow-800',
@@ -186,7 +169,6 @@ export default function BodegaPage() {
     )
   }
 
-
   const calcularDesglose = (detalles) => {
     const t = { cajas: 0, bandejas: 0, unidades: 0 }
     detalles?.forEach(d => {
@@ -197,14 +179,11 @@ export default function BodegaPage() {
     return t
   }
 
-
-  // Mostrar TODOS los movimientos recientes para SKUs (corregido)
-  // Solo el ÚLTIMO movimiento real (el más reciente), nunca repite ni muestra vacío si existe movimiento
   const getUltimoMovimiento = (
     skuCodigo: string,
     tipo: 'ingreso' | 'egreso' | 'reingreso'
   ) => {
-    let movsFiltrados = movimientos.filter(
+    const movsFiltrados = movimientos.filter(
       m => m.skuCodigo === skuCodigo && m.tipo === tipo
     )
     if (movsFiltrados.length === 0) return null
@@ -216,17 +195,15 @@ export default function BodegaPage() {
     return sorted[0]
   }
 
-
   const formatMovimiento = (mov: any) => {
     if (!mov || mov.cantidad === undefined || mov.cantidad === null) return '-'
-    const signo = mov.tipo === 'egreso' ? '-' : '+'
-    const cantidad = Math.abs(mov.cantidad) || 0
+    const cantidad = Math.abs(mov.cantidad)
+    const signo = mov.cantidad < 0 ? '-' : '+'
     const cajas = Math.floor(cantidad / 180)
     const bandejas = Math.floor((cantidad % 180) / 15)
     const unidades = cantidad % 15
     return `${signo}${cantidad}U (${cajas}C ${bandejas}B ${unidades}U)`
   }
-
 
   const handleOrdenarStock = (col) => {
     if (ordenColStock === col) setOrdenAscStock(!ordenAscStock)
@@ -236,12 +213,10 @@ export default function BodegaPage() {
     }
   }
 
-
   const stockFiltrado = useMemo(() => {
     const codigosActivos = skusActivos.map(s => s.codigo)
     return stock.filter(item => codigosActivos.includes(item.skuCodigo))
   }, [stock, skusActivos])
-
 
   const stockOrdenado = useMemo(() => {
     return [...stockFiltrado].sort((a, b) => {
@@ -252,22 +227,18 @@ export default function BodegaPage() {
     })
   }, [stockFiltrado, ordenColStock, ordenAscStock])
 
-
   const handleVerDetalleVale = (vale) => {
     setValeSeleccionado(vale)
     setMostrarDetalleValeModal(true)
   }
-
 
   const handleValidar = (vale) => {
     setValeSeleccionado(vale)
     setMostrarValidarVale(true)
   }
 
-
   return (
     <div className="p-8 bg-gray-50 min-h-screen">
-      {/* Header */}
       <div className="mb-8">
         <div className="flex justify-between items-center mb-6">
           <div>
@@ -276,7 +247,6 @@ export default function BodegaPage() {
           </div>
         </div>
 
-        {/* Botón Crear Vale mejorado */}
         <div className="mb-6">
           <button
             onClick={() => setMostrarCrearVale(true)}
@@ -294,7 +264,6 @@ export default function BodegaPage() {
         </div>
       </div>
 
-      {/* Alerta Vales Pendientes o Mensaje Verde */}
       <div className="mb-6">
         {valesPendientes.length > 0 ? (
           <div className="bg-yellow-50 border-2 border-yellow-300 rounded-2xl shadow-xl p-6">
@@ -308,7 +277,7 @@ export default function BodegaPage() {
                 <h3 className="text-xl font-bold text-yellow-900">
                   ⚠️ {valesPendientes.length} Vale(s) Pendiente(s) por Revisar
                 </h3>
-                <p className="text-sm text-yellow-700">Valida los vales para actualizar el stock</p>
+                <p className="text-sm text-yellow-700">Valida los vales de ingreso para actualizar el stock</p>
               </div>
             </div>
             <div className="overflow-x-auto">
@@ -384,7 +353,6 @@ export default function BodegaPage() {
         )}
       </div>
 
-      {/* STOCK EN TIEMPO REAL */}
       <div className="bg-white rounded-2xl shadow-xl p-6 mb-6">
         <div className="flex justify-between items-center mb-4">
           <div className="flex items-center gap-3">
@@ -467,7 +435,7 @@ export default function BodegaPage() {
                       <tr key={item.id} className="hover:bg-blue-50 transition-colors">
                         <td className="border border-gray-200 p-3">
                           <div className="font-mono font-bold text-blue-600">{item.skuCodigo}</div>
-                          <div className="text-xs text-gray-600">{getNombreSku(item.skuCodigo)}</div>
+                          <div className="text-xs text-gray-600">{getSkuNombre(item.skuCodigo)}</div>
                         </td>
                         <td className="border border-gray-200 p-3 text-center">
                           <div className="font-bold text-lg text-gray-900">{formatNumber(item.cantidad)} U</div>
@@ -486,7 +454,7 @@ export default function BodegaPage() {
                           </span>
                         </td>
                         <td className="border border-gray-200 p-3 text-center">
-                          <span className="text-yellow-700 font-semibold text-sm">
+                          <span className="text-blue-700 font-semibold text-sm">
                             {formatMovimiento(ultimoReingreso)}
                           </span>
                         </td>
@@ -513,7 +481,6 @@ export default function BodegaPage() {
         )}
       </div>
 
-      {/* TABLA VALES DEL DÍA ORDENABLE Y CORRECTA (muestra FECHA ACTUALIZ correcta y ordena por ella) */}
       <div className="bg-white rounded-2xl shadow-xl p-6">
         <div className="flex justify-between items-center mb-4">
           <div className="flex items-center gap-3">
@@ -623,7 +590,7 @@ export default function BodegaPage() {
                             >
                               👁️ Ver
                             </button>
-                            {vale.estado === 'pendiente' && (
+                            {vale.estado === 'pendiente' && vale.tipo === 'ingreso' && (
                               <button
                                 onClick={() => handleValidar(vale)}
                                 className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-semibold text-sm shadow-md"
@@ -643,7 +610,6 @@ export default function BodegaPage() {
         )}
       </div>
 
-      {/* Modales */}
       {mostrarCrearVale && (
         <CrearValeModal isOpen={mostrarCrearVale} onClose={() => setMostrarCrearVale(false)} />
       )}
@@ -663,11 +629,11 @@ export default function BodegaPage() {
       )}
       {mostrarCartola && <CartolaModal isOpen={mostrarCartola} onClose={() => setMostrarCartola(false)} />}
       {mostrarHistorialSku && (
-        <HistorialSkuModal
-          isOpen={mostrarHistorialSku}
-          onClose={() => setMostrarHistorialSku(false)}
-          sku={skuSeleccionado}
-        />
+      <HistorialSkuModal
+        isOpen={mostrarHistorialSku}
+        onClose={() => setMostrarHistorialSku(false)}
+        skuCodigo={skuSeleccionado}
+      />
       )}
       {mostrarAjusteStock && (
         <AjusteStockModal

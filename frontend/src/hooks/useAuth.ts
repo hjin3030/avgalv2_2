@@ -1,44 +1,62 @@
-import { useState, useEffect, useCallback } from 'react';
+// frontend/src/hooks/useAuth.ts
+
+import { useState, useEffect, useCallback } from 'react'
 import {
   signInWithEmailAndPassword,
   signOut,
   onAuthStateChanged,
   User as FirebaseUser,
-} from 'firebase/auth';
-import { doc, getDoc } from 'firebase/firestore';
-import { auth, db } from '@/lib/firebase';
-import type { UserProfile, UserRole } from '@/types';
-import { ROLE_PERMISSIONS } from '@shared/constants';
+} from 'firebase/auth'
+import { doc, getDoc } from 'firebase/firestore'
+import { auth, db } from '@/lib/firebase'
+import type { UserProfile, UserRole } from '@/types'
+
+// Define ROLE_PERMISSIONS localmente si no existe en otro lugar
+const ROLE_PERMISSIONS: Record<string, { modules?: string[]; actions?: string[]; canAccessAll?: boolean }> = {
+  superadmin: {
+    modules: ['home', 'produccion', 'packing', 'bodega', 'dashboard', 'configuracion'],
+    actions: ['create', 'read', 'update', 'delete'],
+    canAccessAll: true
+  },
+  admin: {
+    modules: ['home', 'produccion', 'packing', 'bodega', 'dashboard', 'configuracion'],
+    actions: ['create', 'read', 'update', 'delete'],
+    canAccessAll: false
+  },
+  colaborador: {
+    modules: ['home', 'produccion', 'packing'],
+    actions: ['read'],
+    canAccessAll: false
+  }
+}
 
 function buildPermisosFromRole(role: UserRole): string[] {
-  const roleConfig = ROLE_PERMISSIONS[role];
-  if (!roleConfig) return [];
+  const roleConfig = ROLE_PERMISSIONS[role]
+  if (!roleConfig) return []
   return [
     ...(roleConfig.modules || []).map((m: string) => `module:${m}`),
     ...(roleConfig.actions || []).map((a: string) => `action:${a}`),
     ...(roleConfig.canAccessAll ? ['all'] : [])
-  ];
+  ]
 }
 
 export function useAuth() {
-  const [user, setUser] = useState<FirebaseUser | null>(null);
-  const [profile, setProfile] = useState<UserProfile | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [user, setUser] = useState<FirebaseUser | null>(null)
+  const [profile, setProfile] = useState<UserProfile | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   const loadUserProfile = useCallback(async (firebaseUser: FirebaseUser) => {
     try {
-      const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
+      const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid))
       if (userDoc.exists()) {
-        const data = userDoc.data();
+        const data = userDoc.data()
 
-        let permisos: string[] = [];
+        let permisos: string[] = []
         if (Array.isArray(data.permisos) && data.permisos.length > 0) {
-          // Si el campo permisos ya viene como array plano, usarlo tal cual
-          permisos = data.permisos;
+          permisos = data.permisos
         } else if (data.rol) {
-          // Transforma la config del rol (objeto) a array de strings
-          permisos = buildPermisosFromRole(data.rol as UserRole);
+          permisos = buildPermisosFromRole(data.rol as UserRole)
         }
 
         const userProfile: UserProfile = {
@@ -47,87 +65,87 @@ export function useAuth() {
           email: data.email,
           rol: data.rol as UserRole,
           activo: data.activo ?? true,
-          permisos: permisos,
-        };
-
-        if (!userProfile.activo) {
-          await signOut(auth);
-          setUser(null);
-          setProfile(null);
-          setError('Usuario inactivo');
-          return;
         }
 
-        setProfile(userProfile);
-        setError(null);
+        if (!userProfile.activo) {
+          await signOut(auth)
+          setUser(null)
+          setProfile(null)
+          setError('Usuario inactivo')
+          return
+        }
+
+        setProfile(userProfile)
+        setError(null)
       } else {
-        setProfile(null);
-        setError('Perfil de usuario no encontrado.');
+        setProfile(null)
+        setError('Perfil de usuario no encontrado.')
       }
     } catch (err: any) {
-      console.error('Error loading user profile:', err);
-      setError(err.message || 'Error al cargar perfil de usuario');
-      setProfile(null);
+      console.error('Error loading user profile:', err)
+      setError(err.message || 'Error al cargar perfil de usuario')
+      setProfile(null)
     }
-  }, []);
+  }, [])
 
   useEffect(() => {
-    setLoading(true);
+    setLoading(true)
     const unsubscribe = onAuthStateChanged(
       auth,
       async (firebaseUser) => {
-        setUser(firebaseUser);
+        setUser(firebaseUser)
         if (firebaseUser) {
-          await loadUserProfile(firebaseUser);
+          await loadUserProfile(firebaseUser)
         } else {
-          setProfile(null);
-          setError(null);
+          setProfile(null)
+          setError(null)
         }
-        setLoading(false);
+        setLoading(false)
       },
       (err) => {
-        setError(err.message);
-        setLoading(false);
+        setError(err.message)
+        setLoading(false)
       }
-    );
-    return () => unsubscribe();
-  }, [loadUserProfile]);
+    )
+    return () => unsubscribe()
+  }, [loadUserProfile])
 
   const login = async (email: string, password: string) => {
-    setLoading(true);
-    setError(null);
+    setLoading(true)
+    setError(null)
     try {
-      const userCredential = await signInWithEmailAndPassword(auth, email, password);
-      await loadUserProfile(userCredential.user);
-      setLoading(false);
-      return { success: true };
+      const userCredential = await signInWithEmailAndPassword(auth, email, password)
+      await loadUserProfile(userCredential.user)
+      setLoading(false)
+      return { success: true }
     } catch (err: any) {
-      console.error('Login error:', err);
-      setError(err.message);
-      setLoading(false);
-      return { success: false, error: err.message };
+      console.error('Login error:', err)
+      setError(err.message)
+      setLoading(false)
+      return { success: false, error: err.message }
     }
-  };
+  }
 
   const logout = async () => {
-    setLoading(true);
-    setError(null);
+    setLoading(true)
+    setError(null)
     try {
-      await signOut(auth);
-      setUser(null);
-      setProfile(null);
-      setLoading(false);
+      await signOut(auth)
+      setUser(null)
+      setProfile(null)
+      setLoading(false)
     } catch (err: any) {
-      console.error('Logout error:', err);
-      setError(err.message);
-      setLoading(false);
+      console.error('Logout error:', err)
+      setError(err.message)
+      setLoading(false)
     }
-  };
+  }
 
   const hasPermission = (perm: string) => {
-    if (!profile || !Array.isArray(profile.permisos)) return false;
-    return profile.permisos.includes('all') || profile.permisos.includes(perm);
-  };
+    if (!profile) return false
+    const permisos = buildPermisosFromRole(profile.rol)
+    return permisos.includes('all') || permisos.includes(perm)
+  }
 
   return {
     user,
@@ -137,5 +155,5 @@ export function useAuth() {
     login,
     logout,
     hasPermission,
-  };
+  }
 }

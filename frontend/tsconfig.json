@@ -1,6 +1,3 @@
-// 3. Abrir archivo: frontend/tsconfig.json
-// 4. REEMPLAZAR TODO con esto:
-
 {
   "files": [],
   "references": [
@@ -12,6 +9,14 @@
     "paths": {
       "@/*": ["./src/*"],
       "@shared/*": ["../shared/*"]
-    }
+    },
+    "noImplicitAny": false,
+    "strictNullChecks": false,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "moduleResolution": "node",
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "resolveJsonModule": true
   }
 }

@@ -1,10 +1,11 @@
-// Archivo: frontend/src/components/routing/PublicRoute.tsx
+// frontend/src/components/routing/PublicRoute.tsx
 
 import { Navigate } from 'react-router-dom'
 import { useAuth } from '@/hooks/useAuth'
+import type { ReactElement } from 'react'
 
 interface PublicRouteProps {
-  children: JSX.Element
+  children: ReactElement
 }
 
 export function PublicRoute({ children }: PublicRouteProps) {

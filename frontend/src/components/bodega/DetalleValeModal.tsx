@@ -1,5 +1,5 @@
 import React from 'react'
-import { getSkuNombre } from '@/utils/constants'
+import { useSkus } from '@/hooks/useSkus'
 import { formatDate } from '@/utils/formatHelpers'
 
 interface DetalleValeModalProps {
@@ -9,7 +9,14 @@ interface DetalleValeModalProps {
 }
 
 export default function DetalleValeModal({ isOpen, onClose, valeData }: DetalleValeModalProps) {
+  const { skus } = useSkus()
+  
   if (!isOpen || !valeData) return null
+
+  const getSkuNombre = (codigo: string) => {
+    const sku = skus.find(s => s.codigo === codigo)
+    return sku?.nombre || 'Desconocido'
+  }
 
   const imprimirVale = () => {
     window.print()
@@ -35,7 +42,7 @@ export default function DetalleValeModal({ isOpen, onClose, valeData }: DetalleV
             <strong>Estado:</strong> {valeData.estado?.toUpperCase() || '-'}
           </div>
           <div>
-            <strong>Fecha Creación:</strong> {valeData.fecha ? formatDate(valeData.fecha) : '-'} {valeData.hora || ''}
+            <strong>Fecha Creación:</strong> {formatDate(valeData.fecha)} {valeData.hora || ''}
           </div>
           <div>
             <strong>Fecha Validación:</strong> {valeData.fechaValidacion || '-'} {valeData.horaValidacion || ''}
@@ -53,7 +60,7 @@ export default function DetalleValeModal({ isOpen, onClose, valeData }: DetalleV
             <strong>Usuario creador:</strong> {valeData.usuarioCreadorNombre || '-'}
           </div>
           <div>
-            <strong>Usuario validador:</strong> {valeData.usuarioValidadorNombre || '-'}
+            <strong>Usuario validador:</strong> {valeData.validadoPorNombre || '-'}
           </div>
           <div>
             <strong>Observaciones:</strong> {valeData.observaciones || '-'}
@@ -81,7 +88,7 @@ export default function DetalleValeModal({ isOpen, onClose, valeData }: DetalleV
                   <td className="border border-gray-300 p-2 text-center">{detalle.cajas}</td>
                   <td className="border border-gray-300 p-2 text-center">{detalle.bandejas}</td>
                   <td className="border border-gray-300 p-2 text-center">{detalle.unidades}</td>
-                  <td className="border border-gray-300 p-2 text-right">{detalle.totalUnidades?.toLocaleString('es-CL')}</td>
+                  <td className="border border-gray-300 p-2 text-right">{detalle.totalUnidades.toLocaleString('es-CL')}</td>
                 </tr>
               ))}
               <tr className="font-bold bg-gray-200">

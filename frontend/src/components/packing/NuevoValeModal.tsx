@@ -51,7 +51,7 @@ export default function NuevoValeModal({ isOpen, onClose, onValeCreated }: Nuevo
 
   const totalesVale = useMemo(() => {
     const totalUnidades = productos.reduce((sum, p) => sum + p.totalUnidades, 0)
-    
+
     let cajasTotal = 0
     let bandejasTotal = 0
     let unidadesTotal = 0

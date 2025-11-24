@@ -73,6 +73,8 @@ export default function CrearValeModal({ isOpen, onClose, onValeCreated }: Crear
     }
   }, [productos])
 
+  const calcularTotalUnidades = () => productos.reduce((sum, p) => sum + p.totalUnidades, 0)
+
   const destinoNombre = useMemo(() => destinos.find(d => d.id === destinoId)?.nombre || 'Bodega', [destinoId, destinos])
   const origenNombre = useMemo(() => origenes.find(o => o.id === origenId)?.nombre || 'Bodega', [origenId, origenes])
 
@@ -84,7 +86,6 @@ export default function CrearValeModal({ isOpen, onClose, onValeCreated }: Crear
     }
   }, [])
 
-  // --- PRODUCTOS
   const handleAgregarProducto = () => {
     if (!skuSeleccionado || totalUnidadesProducto === 0) {
       alert('Debes seleccionar un SKU y agregar cantidades válidas')
@@ -152,13 +153,11 @@ export default function CrearValeModal({ isOpen, onClose, onValeCreated }: Crear
     onClose()
   }
 
-  // --- CONFIRMAR
   const handleConfirmar = async () => {
     if (!profile || productos.length === 0 || !tipoVale) {
       alert('Datos incompletos')
       return
     }
-    // Validación de selección
     if (tipoVale === 'egreso' && !destinoId) {
       alert('Debes seleccionar un destino')
       return
@@ -169,14 +168,12 @@ export default function CrearValeModal({ isOpen, onClose, onValeCreated }: Crear
     }
     setCreando(true)
     try {
-      // Ahora siempre seteamos todos los campos requeridos
       const params: any = {
         tipo: tipoVale,
         detalles: productos,
         comentario,
         usuarioCreadorId: profile.uid,
         usuarioCreadorNombre: profile.nombre,
-        // SIEMPRE presentes
         origenId: tipoVale === 'egreso' ? 'bodega' : origenId,
         origenNombre: tipoVale === 'egreso' ? 'Bodega' : origenNombre,
         destinoId: tipoVale === 'egreso' ? destinoId : 'bodega',
@@ -189,16 +186,21 @@ export default function CrearValeModal({ isOpen, onClose, onValeCreated }: Crear
       if (tipoVale === 'egreso' && guiaDespacho) {
         params.guiaDespacho = guiaDespacho
       }
-      await crearVale(params)
+      await crearVale({
+        ...params,
+        skusCatalogo: skusActivos
+      })
       alert('✅ Vale creado exitosamente')
-      if (onValeCreated) onValeCreated()
-      handleCerrar()
-    } catch (error: any) {
-      console.error('Error al crear vale:', error)
-      alert(`❌ Error: ${error.message || 'No se pudo crear el vale'}`)
-    } finally {
-      setCreando(false)
-    }
+      window.location.reload()  // ← RECARGAR PÁGINA
+
+
+      } catch (error: any) {
+        console.error('Error al crear vale:', error)
+        alert(`❌ Error: ${error.message || 'No se pudo crear el vale'}`)
+      } finally {
+        setCreando(false)
+      }
+
   }
 
   if (!isOpen) return null
@@ -251,7 +253,7 @@ export default function CrearValeModal({ isOpen, onClose, onValeCreated }: Crear
           <div className="flex items-center justify-between">
             <div>
               <h2 className="text-2xl font-bold">{getIcono()} {getTitulo()}</h2>
-              <p className="text-sm mt-1">{getOrigenDestino()} - Paso {paso} de 3</p>
+              <p className="text-sm mt-1">{getOrigenDestino()} - Paso {paso} of 3</p>
             </div>
             <button onClick={() => setTipoVale(null)} className="text-sm text-gray-600 hover:text-gray-800 underline">
               ← Cambiar tipo
@@ -408,77 +410,105 @@ export default function CrearValeModal({ isOpen, onClose, onValeCreated }: Crear
 
         {paso === 3 && (
           <div className="space-y-6">
-            <div className="p-4 bg-gray-50 rounded-lg space-y-4">
-              <h3 className="font-bold text-gray-700 text-lg">📋 Resumen del Vale</h3>
-
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                <div>
-                  <strong>Fecha</strong>
-                  <p className="mt-1">{fechaHoraActual.fecha}</p>
+            <div className="bg-gradient-to-r from-blue-50 to-blue-100 p-6 rounded-xl border-2 border-blue-200">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="text-3xl">📋</div>
+                <h3 className="text-xl font-bold text-gray-900">Resumen del Vale</h3>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4 mb-6">
+                <div className="bg-white p-3 rounded-lg">
+                  <div className="text-sm text-gray-600 font-semibold mb-1">Fecha</div>
+                  <div className="text-gray-900 font-bold">{fechaHoraActual.fecha}</div>
                 </div>
-                <div>
-                  <strong>Hora</strong>
-                  <p className="mt-1">{fechaHoraActual.hora}</p>
+                <div className="bg-white p-3 rounded-lg">
+                  <div className="text-sm text-gray-600 font-semibold mb-1">Hora</div>
+                  <div className="text-gray-900 font-bold">{fechaHoraActual.hora}</div>
                 </div>
-                <div>
-                  <strong>Origen</strong>
-                  <p className="mt-1">{tipoVale === 'egreso' ? 'Bodega' : origenNombre}</p>
+                <div className="bg-white p-3 rounded-lg">
+                  <div className="text-sm text-gray-600 font-semibold mb-1">Origen</div>
+                  <div className="text-gray-900 font-bold">{tipoVale === 'egreso' ? 'Bodega' : origenNombre}</div>
                 </div>
-                <div>
-                  <strong>Destino</strong>
-                  <p className="mt-1">{tipoVale === 'egreso' ? destinoNombre : 'Bodega'}</p>
+                <div className="bg-white p-3 rounded-lg">
+                  <div className="text-sm text-gray-600 font-semibold mb-1">Destino</div>
+                  <div className="text-gray-900 font-bold">{tipoVale === 'egreso' ? destinoNombre : 'Bodega'}</div>
                 </div>
+                <div className="bg-white p-3 rounded-lg col-span-2">
+                  <div className="text-sm text-gray-600 font-semibold mb-1">Transportista</div>
+                  <div className="text-gray-900 font-bold">
+                    {transportistasActivos.find((t) => t.id === transportistaId)?.nombre || 'No asignado'}
+                  </div>
+                </div>
+                {guiaDespacho && (
+                  <div className="bg-white p-3 rounded-lg col-span-2">
+                    <div className="text-sm text-gray-600 font-semibold mb-1">Guía de Despacho</div>
+                    <div className="text-gray-900 font-bold">{guiaDespacho}</div>
+                  </div>
+                )}
+                {comentario && (
+                  <div className="bg-white p-3 rounded-lg col-span-2">
+                    <div className="text-sm text-gray-600 font-semibold mb-1">Comentario</div>
+                    <div className="text-gray-900">{comentario}</div>
+                  </div>
+                )}
               </div>
 
-              <div>
-                <strong>Total del Vale</strong>
-                <div className="text-2xl font-bold text-green-700 mt-1">{totalesVale.totalUnidades.toLocaleString()} U</div>
-                <div className="text-sm text-gray-600">({totalesVale.cajas}C, {totalesVale.bandejas}B, {totalesVale.unidades}U)</div>
+              <div className="bg-white p-4 rounded-lg">
+                <div className="flex items-center justify-between mb-3">
+                  <h4 className="text-lg font-bold text-gray-900">Productos ({productos.length})</h4>
+                  <div className="text-2xl font-bold text-blue-600">{calcularTotalUnidades()} U</div>
+                </div>
+                <div className="max-h-64 overflow-y-auto">
+                  <table className="w-full border-collapse border border-gray-200">
+                    <thead className="bg-gray-100 sticky top-0">
+                      <tr>
+                        <th className="border border-gray-300 p-2 text-left text-xs">SKU</th>
+                        <th className="border border-gray-300 p-2 text-center text-xs">Nombre</th>
+                        <th className="border border-gray-300 p-2 text-center text-xs">Cajas</th>
+                        <th className="border border-gray-300 p-2 text-center text-xs">Band.</th>
+                        <th className="border border-gray-300 p-2 text-center text-xs">Uds.</th>
+                        <th className="border border-gray-300 p-2 text-right text-xs">Total</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {productos.map((p, i) => (
+                        <tr key={i} className="hover:bg-blue-50">
+                          <td className="border border-gray-200 p-2 text-sm font-mono">{p.sku}</td>
+                          <td className="border border-gray-200 p-2 text-sm text-center">{p.skuNombre}</td>
+                          <td className="border border-gray-200 p-2 text-sm text-center">{p.cajas}</td>
+                          <td className="border border-gray-200 p-2 text-sm text-center">{p.bandejas}</td>
+                          <td className="border border-gray-200 p-2 text-sm text-center">{p.unidades}</td>
+                          <td className="border border-gray-200 p-2 text-sm text-right font-bold">
+                            {p.totalUnidades.toLocaleString('es-CL')}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
-
-              <div>
-                <strong>{productos.length} producto{productos.length !== 1 ? 's' : ''}</strong>
-              </div>
-
-              {transportistaId && tipoVale === 'egreso' && (
-                <div>
-                  <strong>Transportista</strong>
-                  <p className="mt-1">{transportistasActivos.find((t) => t.id === transportistaId)?.nombre}</p>
-                </div>
-              )}
-
-              {guiaDespacho && tipoVale === 'egreso' && (
-                <div>
-                  <strong>Guía de Despacho</strong>
-                  <p className="mt-1">{guiaDespacho}</p>
-                </div>
-              )}
-
-              {comentario && (
-                <div>
-                  <strong>Observaciones</strong>
-                  <p className="mt-1 text-sm text-gray-600">{comentario}</p>
-                </div>
-              )}
             </div>
 
-            <div className={`p-4 border rounded-lg ${tipoVale === 'egreso' ? 'bg-red-50 border-red-200' : 'bg-cyan-50 border-cyan-200'}`}>
-              <p className={`text-sm ${tipoVale === 'egreso' ? 'text-red-800' : 'text-cyan-800'}`}>
-                ⚠️ <strong>Importante:</strong> Este vale {tipoVale === 'egreso' ? 'restará' : 'sumará'} el stock <strong>inmediatamente</strong> al confirmarlo.
-              </p>
+            <div className="bg-red-50 border-2 border-red-300 rounded-xl p-4">
+              <div className="flex items-center gap-2">
+                <span className="text-2xl">⚠️</span>
+                <p className="text-sm font-semibold text-red-900">
+                  <strong>Importante:</strong> Este vale {tipoVale === 'egreso' ? 'restará' : 'sumará'} el stock <strong>inmediatamente</strong> al confirmarlo.
+                </p>
+              </div>
             </div>
 
             <div className="flex justify-between pt-4">
-              <div className="flex gap-3">
-                <button type="button" onClick={() => setPaso(2)} className="px-4 py-2 text-gray-600 hover:text-gray-800">
-                  ← Atrás
-                </button>
-                <button type="button" onClick={handleCerrar} className="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600">
-                  Cancelar
-                </button>
-              </div>
-              <button type="button" onClick={handleConfirmar} disabled={creando} className={`px-6 py-2 text-white rounded-lg disabled:opacity-50 ${tipoVale === 'egreso' ? 'bg-red-600 hover:bg-red-700' : 'bg-cyan-600 hover:bg-cyan-700'}`}>
-                {creando ? 'Creando...' : `${getIcono()} Confirmar ${getTitulo()}`}
+              <button type="button" onClick={() => setPaso(2)} className="px-4 py-2 text-gray-600 hover:text-gray-800">
+                ← Atrás
+              </button>
+              <button 
+                type="button" 
+                onClick={handleConfirmar} 
+                disabled={creando}
+                className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 font-bold"
+              >
+                {creando ? 'Creando...' : 'Confirmar Vale de Egreso'}
               </button>
             </div>
           </div>

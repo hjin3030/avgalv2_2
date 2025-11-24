@@ -5,17 +5,15 @@ import { PrivateRoute } from './components/routing/PrivateRoute'
 import { SidebarProvider } from './contexts/SidebarContext'
 import AppLayout from './components/layout/AppLayout'
 
-
 // Pages - Importar TODAS las páginas reales
-import Login from './pages/auth/Login'
-import SinAcceso from './pages/auth/SinAcceso'
-import Home from './pages/home/Home'
-import Packing from './pages/packing/Packing'
-import Configuracion from './pages/configuracion/Configuracion'
-import Bodega from './pages/bodega/Bodega'
-import Produccion from './pages/produccion/Produccion'
+import Login from './pages/auth/login'
+import SinAcceso from './pages/auth/sinacceso'
+import Home from './pages/home/home'
+import Packing from './pages/packing/packing'
+import Configuracion from './pages/configuracion/configuracion'
+import Bodega from './pages/bodega/bodega'
+import Produccion from './pages/produccion/produccion'
 import TestFirestore from './pages/test-firestore'
-
 
 // Placeholder pages (se implementarán después)
 function Dashboard() {
@@ -27,7 +25,6 @@ function Dashboard() {
   )
 }
 
-
 function Analisis() {
   return (
     <div className="p-6">
@@ -37,7 +34,6 @@ function Analisis() {
   )
 }
 
-
 function App() {
   return (
     <BrowserRouter>
@@ -46,7 +42,6 @@ function App() {
           {/* Rutas públicas */}
           <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
           <Route path="/sin-acceso" element={<SinAcceso />} />
-
 
           {/* Rutas privadas con Layout */}
           <Route 
@@ -63,7 +58,7 @@ function App() {
           <Route 
             path="/home" 
             element={
-              <PrivateRoute module="home">
+              <PrivateRoute requiredModule="home">
                 <AppLayout>
                   <Home />
                 </AppLayout>
@@ -74,7 +69,7 @@ function App() {
           <Route 
             path="/dashboard" 
             element={
-              <PrivateRoute module="dashboard">
+              <PrivateRoute requiredModule="dashboard">
                 <AppLayout>
                   <Dashboard />
                 </AppLayout>
@@ -85,7 +80,7 @@ function App() {
           <Route 
             path="/produccion" 
             element={
-              <PrivateRoute module="produccion">
+              <PrivateRoute requiredModule="produccion">
                 <AppLayout>
                   <Produccion />
                 </AppLayout>
@@ -96,7 +91,7 @@ function App() {
           <Route 
             path="/packing" 
             element={
-              <PrivateRoute module="packing">
+              <PrivateRoute requiredModule="packing">
                 <AppLayout>
                   <Packing />
                 </AppLayout>
@@ -107,7 +102,7 @@ function App() {
           <Route 
             path="/bodega" 
             element={
-              <PrivateRoute module="bodega">
+              <PrivateRoute requiredModule="bodega">
                 <AppLayout>
                   <Bodega />
                 </AppLayout>
@@ -118,7 +113,7 @@ function App() {
           <Route 
             path="/analisis" 
             element={
-              <PrivateRoute module="analisis">
+              <PrivateRoute requiredModule="analisis">
                 <AppLayout>
                   <Analisis />
                 </AppLayout>
@@ -129,7 +124,7 @@ function App() {
           <Route 
             path="/configuracion" 
             element={
-              <PrivateRoute module="configuracion">
+              <PrivateRoute requiredModule="configuracion">
                 <AppLayout>
                   <Configuracion />
                 </AppLayout>
@@ -137,10 +132,9 @@ function App() {
             } 
           />
 
-
           {/* ========================================
-              RUTA DE TEST (SOLO DESARROLLO)
-              ======================================== */}
+               RUTA DE TEST (SOLO DESARROLLO)
+               ======================================== */}
           <Route 
             path="/test-firestore" 
             element={
@@ -150,7 +144,6 @@ function App() {
             } 
           />
 
-
           {/* Ruta 404 - Redirigir a home */}
           <Route path="*" element={<Navigate to="/home" replace />} />
         </Routes>
@@ -158,6 +151,5 @@ function App() {
     </BrowserRouter>
   )
 }
-
 
 export default App
