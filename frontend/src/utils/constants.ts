@@ -13,7 +13,8 @@ export const ROLES = {
   SUPERADMIN: 'superadmin',
   ADMIN: 'admin',
   SUPERVISOR: 'supervisor',
-  COLABORADOR: 'colaborador'
+  COLABORADOR: 'colaborador',
+  COLAB: 'colab'
 } as const
 
 
@@ -31,7 +32,8 @@ export const ROLES_DEFINITION: RoleDef[] = [
   { key: 'superadmin', label: 'Super Administrador', nivel: 5 },
   { key: 'admin', label: 'Administrador', nivel: 4 },
   { key: 'supervisor', label: 'Supervisor', nivel: 3 },
-  { key: 'colaborador', label: 'Colaborador', nivel: 2 }
+  { key: 'colaborador', label: 'Colaborador', nivel: 2 },
+  { key: 'colab', label: 'Colab', nivel: 1 }
 ]
 
 
@@ -55,7 +57,12 @@ export const ROLE_PERMISSIONS = {
   },
   colaborador: {
     canAccessAll: false,
-    modules: [], // Se asignan individualmente por usuario
+    modules: ['home', 'packing', 'produccion'], // Se asignan individualmente por usuario
+    actions: ['read', 'create']
+  },
+    colab: {  
+    canAccessAll: false,
+    modules: ['home', 'bodega'],
     actions: ['read', 'create']
   }
 }
