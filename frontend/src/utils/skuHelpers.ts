@@ -74,18 +74,20 @@ export function agruparSkusPorTipo(skus: Sku[]): Record<string, Sku[]> {
 }
 
 /**
- * Busca un SKU por código
+ * Busca un SKU por código o por id de documento
+ * - Para vales de ingreso, detalle.sku suele ser el campo "codigo" (ej: "BLA 1ERA")
+ * - Para vales de egreso, detalle.sku suele ser el id del documento (ej: "BLA-1ERA")
  */
 export function buscarSkuPorCodigo(skus: Sku[], codigo: string): Sku | undefined {
-  return skus.find(sku => sku.codigo === codigo)
+  return skus.find(sku => sku.codigo === codigo || (sku as any).id === codigo)
 }
 
 /**
- * ✅ CORREGIDO: Obtiene el nombre del SKU por código (evita "Desconocido" si existe en catálogo)
+ * Obtiene el nombre del SKU usando el catálogo (acepta código o id)
  */
 export function getSkuNombre(skus: Sku[], codigo: string): string {
   const skuObj = buscarSkuPorCodigo(skus, codigo)
-  return skuObj ? skuObj.nombre : 'Desconocido'
+  return skuObj?.nombre || 'Desconocido'
 }
 
 /**

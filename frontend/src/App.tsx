@@ -9,6 +9,7 @@ import AppLayout from './components/layout/AppLayout'
 import Login from './pages/auth/login'
 import SinAcceso from './pages/auth/sinacceso'
 import Home from './pages/home/home'
+import Dashboard from './pages/dashboard/dashboard'
 import Packing from './pages/packing/packing'
 import Configuracion from './pages/configuracion/configuracion'
 import Bodega from './pages/bodega/bodega'
@@ -16,15 +17,6 @@ import Produccion from './pages/produccion/produccion'
 import TestFirestore from './pages/test-firestore'
 
 // Placeholder pages (se implementarán después)
-function Dashboard() {
-  return (
-    <div className="p-6">
-      <h1 className="text-2xl font-bold">Dashboard</h1>
-      <p>KPIs y métricas generales</p>
-    </div>
-  )
-}
-
 function Analisis() {
   return (
     <div className="p-6">

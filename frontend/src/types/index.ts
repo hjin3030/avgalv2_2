@@ -325,3 +325,79 @@ export interface SystemConfig {
   createdAt?: any
   updatedAt?: any
 }
+
+
+// src/types/dashboard.ts
+
+export interface FiltrosDashboard {
+  fechaInicio: string // YYYY-MM-DD
+  fechaFin: string // YYYY-MM-DD
+  skuSeleccionados: string[] // Códigos de SKU
+  pabellonesSeleccionados: string[] // IDs de pabellones
+  tiposVale: ('ingreso' | 'egreso' | 'reingreso')[]
+}
+
+export interface KPIDashboard {
+  valesDelDia: {
+    total: number
+    porTipo: {
+      ingreso: number
+      egreso: number
+      reingreso: number
+    }
+    porEstado: {
+      pendiente: number
+      validado: number
+      rechazado: number
+    }
+    variacionVsAyer: number // Porcentaje
+  }
+  stockTotal: {
+    totalUnidades: number
+    variacionVsAyer: number
+    totalSKUs: number
+  }
+  movimientosDelDia: {
+    total: number
+    ingresos: number
+    egresos: number
+    reingresos: number
+  }
+  valesPendientes: {
+    cantidad: number
+    urgentes: number // Vales con más de 24hrs pendientes
+  }
+}
+
+export interface DataEvolucionVales {
+  fecha: string
+  ingreso: number
+  egreso: number
+  reingreso: number
+}
+
+export interface DataDistribucionStock {
+  sku: string
+  cantidad: number
+  porcentaje: number
+}
+
+export interface DataTopDestinos {
+  nombre: string
+  totalEgresos: number
+  vales: number
+}
+
+export interface DataFlujoHora {
+  hora: string
+  movimientos: number
+  ingresos: number
+  egresos: number
+}
+
+export interface DataProduccionPabellon {
+  fecha: string
+  [key: string]: number | string // pab13, pab14, pab15, etc.
+}
+
+export type PresetFecha = 'hoy' | 'ayer' | 'ultimos7' | 'ultimos30' | 'esteMes' | 'mesAnterior' | 'personalizado'

@@ -1,6 +1,10 @@
+// frontend/src/components/bodega/DetalleValeModal.tsx
+
 import React from 'react'
 import { useSkus } from '@/hooks/useSkus'
 import { formatDate } from '@/utils/formatHelpers'
+import { getSkuNombre as getSkuNombreHelper } from '@/utils/skuHelpers'
+import type { ValeDetalle } from '@/types'
 
 interface DetalleValeModalProps {
   isOpen: boolean
@@ -10,12 +14,11 @@ interface DetalleValeModalProps {
 
 export default function DetalleValeModal({ isOpen, onClose, valeData }: DetalleValeModalProps) {
   const { skus } = useSkus()
-  
+
   if (!isOpen || !valeData) return null
 
   const getSkuNombre = (codigo: string) => {
-    const sku = skus.find(s => s.codigo === codigo)
-    return sku?.nombre || 'Desconocido'
+    return getSkuNombreHelper(skus, codigo)
   }
 
   const imprimirVale = () => {
@@ -32,7 +35,10 @@ export default function DetalleValeModal({ isOpen, onClose, valeData }: DetalleV
         >
           &times;
         </button>
-        <h2 className="text-3xl font-bold mb-4">Detalle del Vale #{valeData.correlativoDia}</h2>
+
+        <h2 className="text-3xl font-bold mb-4">
+          Detalle del Vale #{valeData.correlativoDia}
+        </h2>
 
         <section className="mb-6 grid grid-cols-2 gap-4 text-gray-700">
           <div>
@@ -45,7 +51,8 @@ export default function DetalleValeModal({ isOpen, onClose, valeData }: DetalleV
             <strong>Fecha Creación:</strong> {formatDate(valeData.fecha)} {valeData.hora || ''}
           </div>
           <div>
-            <strong>Fecha Validación:</strong> {valeData.fechaValidacion || '-'} {valeData.horaValidacion || ''}
+            <strong>Fecha Validación:</strong> {valeData.fechaValidacion || '-'}{' '}
+            {valeData.horaValidacion || ''}
           </div>
           <div>
             <strong>Origen:</strong> {valeData.origenNombre || '-'}
@@ -81,19 +88,33 @@ export default function DetalleValeModal({ isOpen, onClose, valeData }: DetalleV
               </tr>
             </thead>
             <tbody>
-              {valeData.detalles?.map((detalle, i) => (
+              {valeData.detalles?.map((detalle: ValeDetalle, i: number) => (
                 <tr key={i} className="hover:bg-gray-50">
                   <td className="border border-gray-300 p-2">{detalle.sku}</td>
-                  <td className="border border-gray-300 p-2 text-center">{getSkuNombre(detalle.sku)}</td>
-                  <td className="border border-gray-300 p-2 text-center">{detalle.cajas}</td>
-                  <td className="border border-gray-300 p-2 text-center">{detalle.bandejas}</td>
-                  <td className="border border-gray-300 p-2 text-center">{detalle.unidades}</td>
-                  <td className="border border-gray-300 p-2 text-right">{detalle.totalUnidades.toLocaleString('es-CL')}</td>
+                  <td className="border border-gray-300 p-2 text-center">
+                    {getSkuNombre(detalle.sku)}
+                  </td>
+                  <td className="border border-gray-300 p-2 text-center">
+                    {detalle.cajas}
+                  </td>
+                  <td className="border border-gray-300 p-2 text-center">
+                    {detalle.bandejas}
+                  </td>
+                  <td className="border border-gray-300 p-2 text-center">
+                    {detalle.unidades}
+                  </td>
+                  <td className="border border-gray-300 p-2 text-right">
+                    {detalle.totalUnidades.toLocaleString('es-CL')}
+                  </td>
                 </tr>
               ))}
               <tr className="font-bold bg-gray-200">
-                <td colSpan={5} className="text-right p-2">Total General:</td>
-                <td className="text-right p-2">{valeData.totalUnidades?.toLocaleString('es-CL')}</td>
+                <td colSpan={5} className="text-right p-2">
+                  Total General:
+                </td>
+                <td className="text-right p-2">
+                  {valeData.totalUnidades?.toLocaleString('es-CL')}
+                </td>
               </tr>
             </tbody>
           </table>

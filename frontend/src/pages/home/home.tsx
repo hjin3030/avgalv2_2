@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useAuth } from '@/hooks/useAuth'
 import { useNavigate } from 'react-router-dom'
 import { useVales } from '@/hooks/useVales'
-import { formatDateTime } from '@/lib/formatters'
+import { formatDateTime } from '/src/utils/formatHelpers'
 import { todayDateString } from '@/utils/formatHelpers'
 import {
   verificarContadoresIngresados,
