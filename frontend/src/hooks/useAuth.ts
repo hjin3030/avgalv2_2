@@ -11,33 +11,39 @@ import { doc, getDoc } from 'firebase/firestore'
 import { auth, db } from '@/lib/firebase'
 import type { UserProfile, UserRole } from '@/types'
 
-// Define ROLE_PERMISSIONS localmente si no existe en otro lugar
-const ROLE_PERMISSIONS: Record<string, { modules?: string[]; actions?: string[]; canAccessAll?: boolean }> = {
+// Configuración de permisos por rol
+type RolePermissionConfig = {
+  modules?: string[]
+  actions?: string[]
+  canAccessAll?: boolean
+}
+
+const ROLE_PERMISSIONS: Record<string, RolePermissionConfig> = {
   superadmin: {
     modules: ['home', 'produccion', 'packing', 'bodega', 'dashboard', 'configuracion'],
     actions: ['create', 'read', 'update', 'delete'],
-    canAccessAll: true
+    canAccessAll: true,
   },
   admin: {
     modules: ['home', 'produccion', 'packing', 'bodega', 'dashboard', 'configuracion'],
     actions: ['create', 'read', 'update', 'delete'],
-    canAccessAll: false
+    canAccessAll: false,
   },
-   supervisor: {
+  supervisor: {
     modules: ['home', 'produccion', 'packing', 'bodega', 'dashboard'],
     actions: ['create', 'read', 'update'],
-    canAccessAll: false
+    canAccessAll: false,
   },
   colaborador: {
     modules: ['home', 'produccion', 'packing', 'bodega'],
-    actions: ['create','read'],
-    canAccessAll: false
+    actions: ['create', 'read'],
+    canAccessAll: false,
   },
-    colab: {
+  colab: {
     modules: ['home', 'bodega'],
-    actions: ['create','read'],
-    canAccessAll: false
-  }
+    actions: ['create', 'read'],
+    canAccessAll: false,
+  },
 }
 
 function buildPermisosFromRole(role: UserRole): string[] {
@@ -46,7 +52,7 @@ function buildPermisosFromRole(role: UserRole): string[] {
   return [
     ...(roleConfig.modules || []).map((m: string) => `module:${m}`),
     ...(roleConfig.actions || []).map((a: string) => `action:${a}`),
-    ...(roleConfig.canAccessAll ? ['all'] : [])
+    ...(roleConfig.canAccessAll ? ['all'] : []),
   ]
 }
 
@@ -62,19 +68,21 @@ export function useAuth() {
       if (userDoc.exists()) {
         const data = userDoc.data()
 
+        // Construir permisos a partir de Firestore o del rol
         let permisos: string[] = []
-        if (Array.isArray(data.permisos) && data.permisos.length > 0) {
-          permisos = data.permisos
-        } else if (data.rol) {
-          permisos = buildPermisosFromRole(data.rol as UserRole)
+        if (Array.isArray((data as any).permisos) && (data as any).permisos.length > 0) {
+          permisos = (data as any).permisos
+        } else if ((data as any).rol) {
+          permisos = buildPermisosFromRole((data as any).rol as UserRole)
         }
 
         const userProfile: UserProfile = {
           uid: firebaseUser.uid,
-          nombre: data.nombre,
-          email: data.email,
-          rol: data.rol as UserRole,
-          activo: data.activo ?? true,
+          nombre: (data as any).nombre,
+          email: (data as any).email,
+          rol: (data as any).rol as UserRole,
+          activo: (data as any).activo ?? true,
+          permisos, // importante para que otros componentes puedan usarlos si lo necesitan
         }
 
         if (!userProfile.activo) {
@@ -153,7 +161,9 @@ export function useAuth() {
 
   const hasPermission = (perm: string) => {
     if (!profile) return false
-    const permisos = buildPermisosFromRole(profile.rol)
+    const permisos = profile.permisos && profile.permisos.length > 0
+      ? profile.permisos
+      : buildPermisosFromRole(profile.rol)
     return permisos.includes('all') || permisos.includes(perm)
   }
 
