@@ -93,7 +93,7 @@ export default function ProduccionPorPabellonRealChart() {
     return (
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
         <h3 className="text-lg font-semibold mb-4">
-          🏭 Distribución Producción por Pabellón (Hoy)
+          🏭 Distribución Producción REAL (Hoy)
         </h3>
         <div className="h-80 flex items-center justify-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-500" />
@@ -106,7 +106,7 @@ export default function ProduccionPorPabellonRealChart() {
     return (
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
         <h3 className="text-lg font-semibold mb-4">
-          🏭 Distribución Producción por Pabellón (Hoy)
+          🏭 Distribución Producción REAL (Hoy)
         </h3>
         <div className="h-80 flex items-center justify-center text-gray-500">
           Sin producción registrada hoy en pabellones 11, 12, 13, 14, 15 y R2
@@ -118,7 +118,7 @@ export default function ProduccionPorPabellonRealChart() {
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
       <h3 className="text-lg font-semibold mb-4">
-        🏭 Distribución Producción por Pabellón TOTALES (Hoy)
+        🏭 Distribución Producción REAL (Hoy)
       </h3>
       <ResponsiveContainer width="100%" height={320}>
         <BarChart

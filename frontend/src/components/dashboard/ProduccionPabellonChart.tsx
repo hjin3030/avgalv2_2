@@ -84,7 +84,7 @@ export default function ProduccionPabellonChart() {
     return (
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
         <h3 className="text-lg font-semibold mb-4">
-          🥚 Producción por Pabellón AUTOMÁTICO (Hoy)
+          🥚 Producción CONTADORES por Pabellón AUTOMÁTICO (Hoy)
         </h3>
         <div className="h-80 flex items-center justify-center text-gray-500">
           Sin contadores registrados hoy
@@ -96,7 +96,7 @@ export default function ProduccionPabellonChart() {
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
       <h3 className="text-lg font-semibold mb-4">
-        🥚 Producción por Pabellón AUTOMÁTICO (Hoy)
+        🥚 Producción CONTADORES por Pabellón AUTOMÁTICO (Hoy)
       </h3>
       <ResponsiveContainer width="100%" height={320}>
         <BarChart

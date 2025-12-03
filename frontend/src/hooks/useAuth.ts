@@ -23,9 +23,19 @@ const ROLE_PERMISSIONS: Record<string, { modules?: string[]; actions?: string[];
     actions: ['create', 'read', 'update', 'delete'],
     canAccessAll: false
   },
+   supervisor: {
+    modules: ['home', 'produccion', 'packing', 'bodega', 'dashboard'],
+    actions: ['create', 'read', 'update'],
+    canAccessAll: false
+  },
   colaborador: {
-    modules: ['home', 'produccion', 'packing'],
-    actions: ['read'],
+    modules: ['home', 'produccion', 'packing', 'bodega'],
+    actions: ['create','read'],
+    canAccessAll: false
+  },
+    colab: {
+    modules: ['home', 'bodega'],
+    actions: ['create','read'],
     canAccessAll: false
   }
 }
