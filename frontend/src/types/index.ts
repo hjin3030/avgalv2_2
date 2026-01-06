@@ -1,30 +1,31 @@
 // frontend/src/types/index.ts
 
-
 // ========================================
 // TIPOS BASE
 // ========================================
-export type UserRole = 'superadmin' | 'admin' | 'supervisor' | 'colaborador'
 
+export type UserRole = 'superadmin' | 'admin' | 'supervisor' | 'colaborador' | 'colab'
 
 // ========================================
 // USERS
 // ========================================
+
 export interface UserProfile {
   uid: string
   nombre: string
   email: string
   rol: UserRole
   activo: boolean
+  permisos?: string[]
   modulosPermitidos?: string[]
   createdAt?: Date
   updatedAt?: Date
 }
 
-
 // ========================================
 // SKUS
 // ========================================
+
 export interface Sku {
   id: string
   codigo: string
@@ -40,10 +41,10 @@ export interface Sku {
   updatedAt?: any
 }
 
-
 // ========================================
 // PABELLONES
 // ========================================
+
 export interface LineaProduccion {
   numeroLinea: number
   capacidadAves: number
@@ -52,12 +53,10 @@ export interface LineaProduccion {
   activa: boolean
 }
 
-
 export interface LineaProduccionConEdad extends LineaProduccion {
   semanasEdad: number
   porcentajeOcupacion: number
 }
-
 
 export interface PabellonConfiguracion {
   razaAves: string
@@ -66,7 +65,6 @@ export interface PabellonConfiguracion {
   temperaturaOptima: number
   humedad: number
 }
-
 
 export interface Pabellon {
   id: string
@@ -84,10 +82,10 @@ export interface Pabellon {
   updatedAt?: any
 }
 
-
 // ========================================
 // DESTINOS
 // ========================================
+
 export interface Destino {
   id: string
   nombre: string
@@ -101,10 +99,10 @@ export interface Destino {
   updatedAt?: any
 }
 
-
 // ========================================
 // ORÍGENES
 // ========================================
+
 export interface Origen {
   id: string
   nombre: string
@@ -114,10 +112,10 @@ export interface Origen {
   updatedAt?: any
 }
 
-
 // ========================================
 // TRANSPORTISTAS
 // ========================================
+
 export interface Transportista {
   id: string
   nombre: string
@@ -132,10 +130,10 @@ export interface Transportista {
   updatedAt?: any
 }
 
-
 // ========================================
 // VALES
 // ========================================
+
 export interface ValeDetalle {
   id?: string
   skuId: string
@@ -147,7 +145,6 @@ export interface ValeDetalle {
   unidades: number
   totalUnidades: number
 }
-
 
 export interface Vale {
   id: string
@@ -183,16 +180,15 @@ export interface Vale {
   updatedAt?: any
 }
 
-
 // ========================================
 // STOCK (ACTUALIZADO PARA BODEGA)
 // ========================================
+
 export interface Desglose {
   cajas: number
   bandejas: number
   unidades: number
 }
-
 
 export interface UltimoMovimiento {
   cantidad: number
@@ -203,7 +199,6 @@ export interface UltimoMovimiento {
   origenNombre?: string
   destinoNombre?: string
 }
-
 
 export interface Stock {
   id: string
@@ -224,12 +219,11 @@ export interface Stock {
   updatedAt?: any
 }
 
-
 // ========================================
 // MOVIMIENTOS (NUEVO PARA BODEGA)
 // ========================================
-export type TipoMovimiento = 'ingreso' | 'egreso' | 'reingreso' | 'ajuste'
 
+export type TipoMovimiento = 'ingreso' | 'egreso' | 'reingreso' | 'ajuste'
 
 export interface Movimiento {
   id: string
@@ -257,10 +251,10 @@ export interface Movimiento {
   observaciones?: string
 }
 
-
 // ========================================
 // AUDITORÍA
 // ========================================
+
 export interface AuditLog {
   id: string
   timestamp: any
@@ -278,10 +272,10 @@ export interface AuditLog {
   prioridad?: 'ALTA' | 'MEDIA' | 'BAJA'
 }
 
-
 // ========================================
 // MÉTRICAS Y REPORTES
 // ========================================
+
 export interface MetricaProductividad {
   fecha: string
   pabellonId: string
@@ -292,7 +286,6 @@ export interface MetricaProductividad {
   eficiencia: number
 }
 
-
 export interface MetricaStock {
   sku: string
   cantidad: number
@@ -301,10 +294,10 @@ export interface MetricaStock {
   estado: 'bajo' | 'normal' | 'alto'
 }
 
-
 // ========================================
 // SYSTEM CONFIG
 // ========================================
+
 export interface SystemConfig {
   id: string
   nombreEmpresa: string
@@ -325,7 +318,6 @@ export interface SystemConfig {
   createdAt?: any
   updatedAt?: any
 }
-
 
 // src/types/dashboard.ts
 

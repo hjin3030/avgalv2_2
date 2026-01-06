@@ -35,7 +35,7 @@ const ROLE_PERMISSIONS: Record<string, RolePermissionConfig> = {
     canAccessAll: false,
   },
   colaborador: {
-    modules: ['home', 'produccion', 'packing', 'bodega'],
+    modules: ['home', 'produccion', 'packing'],
     actions: ['create', 'read'],
     canAccessAll: false,
   },
@@ -67,7 +67,7 @@ export function useAuth() {
       const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid))
       if (userDoc.exists()) {
         const data = userDoc.data()
-
+        
         // Construir permisos a partir de Firestore o del rol
         let permisos: string[] = []
         if (Array.isArray((data as any).permisos) && (data as any).permisos.length > 0) {
@@ -82,7 +82,8 @@ export function useAuth() {
           email: (data as any).email,
           rol: (data as any).rol as UserRole,
           activo: (data as any).activo ?? true,
-          permisos, // importante para que otros componentes puedan usarlos si lo necesitan
+          permisos,
+          modulosPermitidos: (data as any).modulosPermitidos || []
         }
 
         if (!userProfile.activo) {
@@ -125,6 +126,7 @@ export function useAuth() {
         setLoading(false)
       }
     )
+
     return () => unsubscribe()
   }, [loadUserProfile])
 

@@ -11,7 +11,7 @@ interface AjusteStockModalProps {
 
 export default function AjusteStockModal({ onClose, onSuccess }: AjusteStockModalProps) {
   const { profile } = useAuth()
-  const { stock, } = useStock()
+  const { stock, aplicarAjuste } = useStock()
   const { skus } = useSkus()
 
   const [skuId, setSkuId] = useState('')

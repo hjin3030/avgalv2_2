@@ -19,7 +19,7 @@ export function PrivateRoute({
   // Mostrar loading mientras verifica autenticación
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-100">
+      <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
           <p className="text-gray-600">Cargando...</p>
@@ -28,45 +28,44 @@ export function PrivateRoute({
     )
   }
 
-  // Si no está autenticado, redirigir a login
+  // Si no está autenticado, redirigir al login
   if (!user || !profile) {
     return <Navigate to="/login" replace />
   }
 
-  // Si el usuario está inactivo, redirigir a sin-acceso
-  if (!(profile as any).activo) {
-    return <Navigate to="/sin-acceso" replace />
+  // Si no está activo, redirigir al login
+  if (!profile.activo) {
+    return <Navigate to="/login" replace />
   }
 
-  // Verificar rol si es necesario
-  if (requiredRoles && !requiredRoles.includes(profile.rol)) {
-    return <Navigate to="/sin-acceso" replace />
+  // Verificar roles requeridos (si se especificaron)
+  if (requiredRoles && requiredRoles.length > 0) {
+    if (!requiredRoles.includes(profile.rol)) {
+      return <Navigate to="/sin-acceso" replace />
+    }
   }
 
-  // Verificar acceso al módulo si es necesario
+  // Verificar módulo requerido (si se especificó)
   if (requiredModule) {
-    // Admin y superadmin tienen acceso total
+    // Admin y superadmin tienen acceso a todo
     if (profile.rol === 'admin' || profile.rol === 'superadmin') {
       return children
     }
 
-    // Obtener modulosPermitidos del documento de Firestore
-    const modulosPermitidos = (profile as any).modulosPermitidos as string[] | undefined
-
-    // Si tiene modulosPermitidos en Firestore y el módulo está ahí
-    if (Array.isArray(modulosPermitidos) && modulosPermitidos.includes(requiredModule)) {
+    // 1. Verificar en modulosPermitidos (campo específico de Firestore)
+    if (profile.modulosPermitidos && profile.modulosPermitidos.includes(requiredModule)) {
       return children
     }
 
-    // Fallback: revisar permisos construidos del rol (aunque para colab no aplica)
-    const permisos = (profile as any).permisos as string[] | undefined
-    if (Array.isArray(permisos) && (permisos.includes('all') || permisos.includes(`module:${requiredModule}`))) {
+    // 2. Verificar en permisos construidos (fallback)
+    if (profile.permisos && profile.permisos.includes(`module:${requiredModule}`)) {
       return children
     }
 
-    // No tiene acceso
-    return <Navigate to="/sin-acceso" replace />
+    // Si no tiene acceso, redirigir a home
+    return <Navigate to="/home" replace />
   }
 
+  // Si pasó todas las validaciones, mostrar el componente
   return children
 }
