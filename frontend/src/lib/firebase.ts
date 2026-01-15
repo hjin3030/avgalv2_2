@@ -1,22 +1,25 @@
+// src/lib/firebase.ts
 import { initializeApp } from 'firebase/app'
 import { getAuth } from 'firebase/auth'
 import { getFirestore } from 'firebase/firestore'
 
-// Your web app's Firebase configuration
-// For Firebase JS SDK v7.20.0 and later, measurementId is optional
+// Vite: solo variables con prefijo VITE_ están disponibles en import.meta.env [web:66]
 const firebaseConfig = {
-  apiKey: "AIzaSyCygTcmnphAEuwKkMS5uWe6nNtp0bSAeWo",
-  authDomain: "avgalv2.firebaseapp.com",
-  projectId: "avgalv2",
-  storageBucket: "avgalv2.firebasestorage.app",
-  messagingSenderId: "532487408821",
-  appId: "1:532487408821:web:5104261076204593fdc2fc",
-  measurementId: "G-9LK5BN4XVX"
-};
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID,
+  // opcional:
+  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID,
+}
 
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
+const app = initializeApp(firebaseConfig)
 
-// Exportar servicios
 export const auth = getAuth(app)
 export const db = getFirestore(app)
+
+// Útil para verificar en consola (puedes borrar después)
+console.log('VITE MODE:', import.meta.env.MODE)
+console.log('FIREBASE PROJECT:', import.meta.env.VITE_FIREBASE_PROJECT_ID)

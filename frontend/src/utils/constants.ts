@@ -315,7 +315,7 @@ export interface SkuCatalogItem {
   codigo: string
   nombre: string
   tipo: 'blanco' | 'color' | 'mixto'
-  calibre: 'primera' | 'segunda' | 'tercera' | 'cuarta' | 'extra' | 'jumbo' | 'manchado' | 'super extra' | 'trizados' | 'merma'
+  calibre: 'primera' | 'segunda' | 'tercera' | 'cuarta' | 'extra' | 'jumbo' | 'sucio' | 'super extra' | 'trizados' | 'merma'
   unidadesPorCaja: number
   unidadesPorBandeja: number
 }
@@ -371,9 +371,9 @@ export const SKU_CATALOG: Record<string, SkuCatalogItem> = {
   },
   'BLA MAN': {
     codigo: 'BLA MAN',
-    nombre: 'blanco manchado',
+    nombre: 'blanco sucio',
     tipo: 'blanco',
-    calibre: 'manchado',
+    calibre: 'sucio',
     unidadesPorCaja: 180,
     unidadesPorBandeja: 30
   },
@@ -443,9 +443,9 @@ export const SKU_CATALOG: Record<string, SkuCatalogItem> = {
   },
   'COL MAN': {
     codigo: 'COL MAN',
-    nombre: 'color manchado',
+    nombre: 'color sucio',
     tipo: 'color',
-    calibre: 'manchado',
+    calibre: 'sucio',
     unidadesPorCaja: 180,
     unidadesPorBandeja: 30
   },

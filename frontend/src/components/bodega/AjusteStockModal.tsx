@@ -1,19 +1,21 @@
 // frontend/src/components/bodega/AjusteStockModal.tsx
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useAuth } from '@/hooks/useAuth'
 import { useStock } from '@/hooks/useStock'
 import { useSkus } from '@/hooks/useSkus'
 
 interface AjusteStockModalProps {
   onClose: () => void
-  onSuccess: () => void
+  onSuccess?: () => void
 }
+
 
 export default function AjusteStockModal({ onClose, onSuccess }: AjusteStockModalProps) {
   const { profile } = useAuth()
   const { stock, aplicarAjuste } = useStock()
   const { skus } = useSkus()
 
+  // OJO: este skuId es el ID del documento SKU (porque el <option value={s.id} />)
   const [skuId, setSkuId] = useState('')
   const [tipoAjuste, setTipoAjuste] = useState<'incrementar' | 'decrementar' | 'establecer'>('establecer')
   const [cantidad, setCantidad] = useState(0)
@@ -22,13 +24,22 @@ export default function AjusteStockModal({ onClose, onSuccess }: AjusteStockModa
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const stockActual = stock.find((s) => s.skuId === skuId)
+  // Resolver SKU seleccionado desde catálogo
+  const skuSeleccionado = useMemo(() => skus.find((s) => s.id === skuId), [skus, skuId])
+  const skuCodigoSeleccionado = skuSeleccionado?.codigo || ''
+  const skuNombreSeleccionado = skuSeleccionado?.nombre || 'Desconocido'
+
+  // El docId de /stock es skuCodigo, por lo tanto se busca por skuCodigo
+  const stockActual = useMemo(() => {
+    if (!skuCodigoSeleccionado) return undefined
+    return stock.find((s) => s.skuCodigo === skuCodigoSeleccionado)
+  }, [stock, skuCodigoSeleccionado])
 
   const calcularNuevoStock = () => {
-    if (!stockActual) return 0
+    const actual = stockActual?.cantidad ?? 0
     if (tipoAjuste === 'establecer') return cantidad
-    if (tipoAjuste === 'incrementar') return stockActual.cantidad + cantidad
-    return stockActual.cantidad - cantidad
+    if (tipoAjuste === 'incrementar') return actual + cantidad
+    return actual - cantidad
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -41,40 +52,45 @@ export default function AjusteStockModal({ onClose, onSuccess }: AjusteStockModa
 
       if (!skuId) {
         setError('Debes seleccionar un SKU')
-        setLoading(false)
+        return
+      }
+
+      if (!skuCodigoSeleccionado) {
+        setError('No se pudo resolver el código del SKU seleccionado')
         return
       }
 
       if (!razon.trim()) {
         setError('Debes especificar una razón para el ajuste')
-        setLoading(false)
         return
       }
 
       if (cantidad <= 0 && tipoAjuste !== 'establecer') {
         setError('La cantidad debe ser mayor a 0')
-        setLoading(false)
         return
       }
 
-      const resultado = await aplicarAjuste(
-        skuId,
+      // Llama al hook, pero el hook debe convertir skuCodigo->helper y registrar movimiento tipo "ajuste"
+      const resultado = await aplicarAjuste({
+        skuCodigo: skuCodigoSeleccionado,
+        skuNombre: skuNombreSeleccionado,
         tipoAjuste,
         cantidad,
         razon,
         observaciones,
-        profile.uid,  // Cambié profile.id por profile.uid, que es más común
-        profile.nombre
-      )
+        usuarioId: profile.uid,
+        usuarioNombre: profile.nombre,
+      })
+
 
       if (!resultado.success) {
         setError(resultado.error || 'Error al aplicar ajuste')
-        setLoading(false)
         return
       }
 
-      onSuccess()
+      if (typeof onSuccess === 'function') onSuccess()
       onClose()
+
     } catch (err: any) {
       console.error('Error al crear ajuste:', err)
       setError(err.message || 'Error al crear ajuste')
@@ -115,10 +131,10 @@ export default function AjusteStockModal({ onClose, onSuccess }: AjusteStockModa
           </div>
 
           {/* Mostrar stock actual */}
-          {stockActual && (
+          {skuCodigoSeleccionado && (
             <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
               <p className="text-sm text-blue-800">
-                <strong>Stock actual:</strong> {stockActual.cantidad.toLocaleString('es-CL')} unidades
+                <strong>Stock actual:</strong> {(stockActual?.cantidad ?? 0).toLocaleString('es-CL')} unidades
               </p>
             </div>
           )}
@@ -153,7 +169,7 @@ export default function AjusteStockModal({ onClose, onSuccess }: AjusteStockModa
               required
               min={tipoAjuste === 'establecer' ? 0 : 1}
             />
-            {stockActual && (
+            {skuCodigoSeleccionado && (
               <p className="text-sm text-gray-600 mt-1">
                 Nuevo stock: <strong className="text-gray-900">{calcularNuevoStock().toLocaleString('es-CL')}</strong> unidades
               </p>
@@ -184,9 +200,7 @@ export default function AjusteStockModal({ onClose, onSuccess }: AjusteStockModa
 
           {/* Observaciones */}
           <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Observaciones Adicionales
-            </label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Observaciones Adicionales</label>
             <textarea
               value={observaciones}
               onChange={(e) => setObservaciones(e.target.value)}

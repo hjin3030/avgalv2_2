@@ -20,6 +20,7 @@ export default function Sidebar() {
     { icon: '🏠', label: 'Home', path: '/home', module: 'home' },
     { icon: '📊', label: 'Dashboard', path: '/dashboard', module: 'dashboard' },
     { icon: '🏪', label: 'Bodega', path: '/bodega', module: 'bodega' },
+    { icon: '♻️', label: 'Sala L', path: '/salal', module: 'salal' },
     { icon: '📦', label: 'Packing', path: '/packing', module: 'packing' },
     { icon: '🏭', label: 'Producción', path: '/produccion', module: 'produccion' },
     { icon: '⚙️', label: 'Configuración', path: '/configuracion', module: 'configuracion' }

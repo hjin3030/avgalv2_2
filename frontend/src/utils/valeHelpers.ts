@@ -9,7 +9,7 @@ import {
   getDocs,
   Timestamp,
   getDoc,
-  writeBatch
+  writeBatch,
 } from 'firebase/firestore'
 import { todayDateString } from './formatHelpers'
 
@@ -28,6 +28,11 @@ interface CrearValeParams {
   origenNombre: string
   destinoId: string
   destinoNombre: string
+
+  // ✅ NUEVO: pabellón (para ingresos desde packing y para lotes Sala L)
+  pabellonId?: string | null
+  pabellonNombre?: string | null
+
   transportistaId?: string
   transportistaNombre?: string
   detalles: DetalleVale[]
@@ -38,21 +43,29 @@ interface CrearValeParams {
 }
 
 function getSkuNombreFromCatalogo(skusCatalogo: any[], codigo: string): string {
-  const sku = skusCatalogo.find(s => s.codigo === codigo)
+  const sku = skusCatalogo.find((s) => s.codigo === codigo)
   return sku?.nombre || 'Desconocido'
 }
 
 function enriquecerDetallesConNombre(detalles: DetalleVale[], skusCatalogo: any[]): DetalleVale[] {
-  return detalles.map(detalle => ({
+  return detalles.map((detalle) => ({
     ...detalle,
-    skuNombre: detalle.skuNombre || getSkuNombreFromCatalogo(skusCatalogo, detalle.sku)
+    skuNombre: detalle.skuNombre || getSkuNombreFromCatalogo(skusCatalogo, detalle.sku),
   }))
 }
 
-// FUNCIÓN CRÍTICA: Normaliza códigos SKU para que coincidan con IDs de stock
+// Normaliza códigos SKU para que coincidan con IDs de stock
 function normalizarCodigoSku(codigo: string): string {
-  // Convierte guiones a espacios para que coincida con los IDs de documentos de stock
-  return codigo.replace(/-/g, ' ')
+  return String(codigo || '').replace(/-/g, ' ')
+}
+
+function horaChileHHmm(date: Date) {
+  return new Intl.DateTimeFormat('es-CL', {
+    timeZone: 'America/Santiago',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).format(date)
 }
 
 export async function crearVale(params: CrearValeParams): Promise<string> {
@@ -62,69 +75,87 @@ export async function crearVale(params: CrearValeParams): Promise<string> {
     origenNombre,
     destinoId,
     destinoNombre,
+
+    pabellonId,
+    pabellonNombre,
+
     transportistaId,
     transportistaNombre,
     detalles,
     comentario,
     usuarioCreadorId,
     usuarioCreadorNombre,
-    skusCatalogo = []
+    skusCatalogo = [],
   } = params
 
   if (
     !tipo ||
-    !origenId || origenId.trim() === '' ||
-    !origenNombre || origenNombre.trim() === '' ||
-    !destinoId || destinoId.trim() === '' ||
-    !destinoNombre || destinoNombre.trim() === '' ||
-    !usuarioCreadorId || usuarioCreadorId.trim() === '' ||
-    !usuarioCreadorNombre || usuarioCreadorNombre.trim() === '' ||
-    !detalles || detalles.length === 0
+    !origenId ||
+    origenId.trim() === '' ||
+    !origenNombre ||
+    origenNombre.trim() === '' ||
+    !destinoId ||
+    destinoId.trim() === '' ||
+    !destinoNombre ||
+    destinoNombre.trim() === '' ||
+    !usuarioCreadorId ||
+    usuarioCreadorId.trim() === '' ||
+    !usuarioCreadorNombre ||
+    usuarioCreadorNombre.trim() === '' ||
+    !detalles ||
+    detalles.length === 0
   ) {
     throw new Error('Faltan datos obligatorios para crear el vale')
   }
 
   const detallesConNombre = enriquecerDetallesConNombre(detalles, skusCatalogo)
-  const totalUnidades = detallesConNombre.reduce((sum, d) => sum + d.totalUnidades, 0)
-  const hoy = todayDateString()
+  const totalUnidades = detallesConNombre.reduce((sum, d) => sum + Number(d.totalUnidades || 0), 0)
 
-  const valesHoyQuery = query(
-    collection(db, 'vales'),
-    where('fecha', '==', hoy),
-    where('tipo', '==', tipo)
-  )
+  const hoy = todayDateString() // YYYY-MM-DD Chile
+  const valesHoyQuery = query(collection(db, 'vales'), where('fecha', '==', hoy), where('tipo', '==', tipo))
   const valesHoySnapshot = await getDocs(valesHoyQuery)
   const correlativoDia = valesHoySnapshot.size + 1
 
   const ahora = new Date()
   const timestamp = Timestamp.fromDate(ahora)
+
   const esIngreso = tipo.toLowerCase() === 'ingreso'
   const estado = esIngreso ? 'pendiente' : 'validado'
 
   const valeData: any = {
     tipo,
     estado,
+
     origenId,
     origenNombre,
     destinoId,
     destinoNombre,
+
+    // ✅ NUEVO
+    pabellonId: pabellonId || null,
+    pabellonNombre: pabellonNombre || null,
+
     transportistaId: transportistaId || null,
     transportistaNombre: transportistaNombre || null,
+
     detalles: detallesConNombre,
     totalUnidades,
     comentario: comentario || null,
+
     usuarioCreadorId,
     usuarioCreadorNombre,
+
     fecha: hoy,
-    hora: ahora.toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' }),
+    hora: horaChileHHmm(ahora), // ✅ 24h
     correlativoDia,
+
     createdAt: timestamp,
-    timestamp
+    timestamp,
   }
 
   if (!esIngreso) {
     valeData.fechaValidacion = hoy
-    valeData.horaValidacion = ahora.toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' })
+    valeData.horaValidacion = horaChileHHmm(ahora) // ✅ 24h
     valeData.updatedAt = timestamp
   }
 
@@ -132,17 +163,16 @@ export async function crearVale(params: CrearValeParams): Promise<string> {
 
   if (!esIngreso) {
     const stockRefs: Map<string, any> = new Map()
-    
+
     for (const detalle of detallesConNombre) {
-      // CORRECCIÓN: Normalizar código SKU (guiones → espacios)
       const codigoNormalizado = normalizarCodigoSku(detalle.sku)
       const stockRef = doc(db, 'stock', codigoNormalizado)
       const stockSnap = await getDoc(stockRef)
-      
+
       stockRefs.set(detalle.sku, {
         ref: stockRef,
         existe: stockSnap.exists(),
-        cantidad: stockSnap.exists() ? (stockSnap.data().cantidad || 0) : 0
+        cantidad: stockSnap.exists() ? Number(stockSnap.data().cantidad ?? 0) : 0,
       })
     }
 
@@ -153,20 +183,20 @@ export async function crearVale(params: CrearValeParams): Promise<string> {
 
     for (const detalle of detallesConNombre) {
       const stockData = stockRefs.get(detalle.sku)!
-      const cantidadAjuste = tipo === 'egreso' ? -detalle.totalUnidades : detalle.totalUnidades
-      const nuevaCantidad = stockData.cantidad + cantidadAjuste
+      const ajuste = tipo === 'egreso' ? -Number(detalle.totalUnidades || 0) : Number(detalle.totalUnidades || 0)
+      const nuevaCantidad = Number(stockData.cantidad || 0) + ajuste
 
       if (!stockData.existe) {
         batch.set(stockData.ref, {
           skuCodigo: normalizarCodigoSku(detalle.sku),
           cantidad: nuevaCantidad,
           createdAt: timestamp,
-          updatedAt: timestamp
+          updatedAt: timestamp,
         })
       } else {
         batch.update(stockData.ref, {
           cantidad: nuevaCantidad,
-          updatedAt: timestamp
+          updatedAt: timestamp,
         })
       }
 
@@ -175,20 +205,25 @@ export async function crearVale(params: CrearValeParams): Promise<string> {
         tipo,
         skuCodigo: normalizarCodigoSku(detalle.sku),
         skuNombre: detalle.skuNombre || getSkuNombreFromCatalogo(skusCatalogo, detalle.sku),
-        cantidad: cantidadAjuste,
+        cantidad: ajuste,
+
         origenId,
         origenNombre,
         destinoId,
         destinoNombre,
+
         valeId: valeRef.id,
         valeReferencia: `${tipo.toUpperCase()} #${correlativoDia}`,
         valeEstado: estado,
+
         fecha: hoy,
-        hora: ahora.toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' }),
+        hora: horaChileHHmm(ahora), // ✅ 24h
+
         usuarioId: usuarioCreadorId,
         usuarioNombre: usuarioCreadorNombre,
+
         createdAt: timestamp,
-        timestamp
+        timestamp,
       })
     }
 
@@ -208,68 +243,63 @@ export async function validarVale(
   valeId: string,
   usuarioValidadorId: string,
   usuarioValidadorNombre: string,
-  skusCatalogo: any[]
+  skusCatalogo: any[],
 ): Promise<void> {
   try {
     const valeRef = doc(db, 'vales', valeId)
     const valeSnap = await getDoc(valeRef)
-    if (!valeSnap.exists()) {
-      throw new Error('Vale no encontrado')
-    }
-    const vale = valeSnap.data()
-    if (vale.estado !== 'pendiente') {
-      throw new Error('Solo se pueden validar vales pendientes')
-    }
-    if (vale.tipo !== 'ingreso') {
-      throw new Error('Solo se pueden validar vales de tipo ingreso')
-    }
+    if (!valeSnap.exists()) throw new Error('Vale no encontrado')
+
+    const vale: any = valeSnap.data()
+    if (vale.estado !== 'pendiente') throw new Error('Solo se pueden validar vales pendientes')
+    if (vale.tipo !== 'ingreso') throw new Error('Solo se pueden validar vales de tipo ingreso')
 
     const ahora = new Date()
     const timestamp = Timestamp.fromDate(ahora)
-    const detallesConNombre = enriquecerDetallesConNombre(vale.detalles, skusCatalogo)
+    const detallesConNombre = enriquecerDetallesConNombre(vale.detalles || [], skusCatalogo)
 
     const stockRefs: Map<string, any> = new Map()
-    
     for (const detalle of detallesConNombre) {
-      // CORRECCIÓN: Normalizar código SKU
       const codigoNormalizado = normalizarCodigoSku(detalle.sku)
       const stockRef = doc(db, 'stock', codigoNormalizado)
       const stockSnap = await getDoc(stockRef)
-      
+
       stockRefs.set(detalle.sku, {
         ref: stockRef,
         existe: stockSnap.exists(),
-        cantidad: stockSnap.exists() ? (stockSnap.data().cantidad || 0) : 0
+        cantidad: stockSnap.exists() ? Number(stockSnap.data().cantidad ?? 0) : 0,
       })
     }
 
     const batch = writeBatch(db)
-    
+    const hoy = todayDateString()
+
     batch.update(valeRef, {
       estado: 'validado',
       validadoPorId: usuarioValidadorId,
       validadoPorNombre: usuarioValidadorNombre,
-      fechaValidacion: todayDateString(),
-      horaValidacion: ahora.toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' }),
+      fechaValidacion: hoy,
+      horaValidacion: horaChileHHmm(ahora), // ✅ 24h
       updatedAt: timestamp,
-      detalles: detallesConNombre
+      detalles: detallesConNombre,
     })
 
     for (const detalle of detallesConNombre) {
       const stockData = stockRefs.get(detalle.sku)!
-      const nuevaCantidad = stockData.cantidad + detalle.totalUnidades
+      const suma = Number(detalle.totalUnidades || 0)
+      const nuevaCantidad = Number(stockData.cantidad || 0) + suma
 
       if (!stockData.existe) {
         batch.set(stockData.ref, {
           skuCodigo: normalizarCodigoSku(detalle.sku),
           cantidad: nuevaCantidad,
           createdAt: timestamp,
-          updatedAt: timestamp
+          updatedAt: timestamp,
         })
       } else {
         batch.update(stockData.ref, {
           cantidad: nuevaCantidad,
-          updatedAt: timestamp
+          updatedAt: timestamp,
         })
       }
 
@@ -278,20 +308,25 @@ export async function validarVale(
         tipo: 'ingreso',
         skuCodigo: normalizarCodigoSku(detalle.sku),
         skuNombre: detalle.skuNombre || getSkuNombreFromCatalogo(skusCatalogo, detalle.sku),
-        cantidad: detalle.totalUnidades,
+        cantidad: suma,
+
         origenId: vale.origenId,
         origenNombre: vale.origenNombre,
         destinoId: vale.destinoId,
         destinoNombre: vale.destinoNombre,
+
         valeId,
         valeReferencia: `INGRESO #${vale.correlativoDia}`,
         valeEstado: 'validado',
-        fecha: todayDateString(),
-        hora: ahora.toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' }),
+
+        fecha: hoy,
+        hora: horaChileHHmm(ahora), // ✅ 24h
+
         usuarioId: usuarioValidadorId,
         usuarioNombre: usuarioValidadorNombre,
+
         createdAt: timestamp,
-        timestamp
+        timestamp,
       })
     }
 

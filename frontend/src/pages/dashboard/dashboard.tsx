@@ -8,9 +8,9 @@ import { useMovimientos } from '../../hooks/useMovimientos'
 import { useContadores } from '../../hooks/useContadores'
 import { useSkus } from '../../hooks/useSkus'
 
-import CartolaModal from '../../components/bodega/CartolaModal'
-import DetalleValeModal from '../../components/bodega/DetalleValeModal'
-import HistorialSkuModal from '../../components/bodega/HistorialSkuModal'
+import CartolaModal from '../../components/movimientos/CartolaModal'
+import DetalleValeModal from '../../components/bodega/BodegaDetalleValeModal'
+import HistorialSkuModal from '../../components/movimientos/HistorialSkuModal'
 
 import KPICards from '../../components/dashboard/KPIcards'
 import ValesEvolutionChart from '../../components/dashboard/ValesEvolutionChart'
@@ -25,6 +25,9 @@ import ProduccionPabellonChart from '../../components/dashboard/ProduccionPabell
 import ProdRealVsTeoricaChart from '../../components/dashboard/ProdRealVsTeoricaChart'
 import ProduccionPorPabellonRealChart from '../../components/dashboard/ProduccionPorPabellonRealChart'
 
+import { calcularDesglose, formatearDesglose } from '../../utils/stockHelpers'
+import { getSkuInfo } from '../../utils/constants'
+
 
 // Fecha hoy en local, formato YYYY-MM-DD
 const getHoyLocalISO = () => {
@@ -35,12 +38,17 @@ const getHoyLocalISO = () => {
   return `${year}-${month}-${day}`
 }
 
-function desglose(cantidad: number) {
-  const cajas = Math.floor(Math.abs(cantidad) / 180)
-  const bandejas = Math.floor((Math.abs(cantidad) % 180) / 30)
-  const unidades = Math.abs(cantidad) % 30
-  return `${cajas}C ${bandejas}B ${unidades}U`
+function desglose(skuCodigo: string, cantidad: number) {
+  const info = getSkuInfo(skuCodigo)
+
+  // fallback por si el sku no está en catálogo
+  const unidadesPorCaja = info?.unidadesPorCaja ?? 180
+  const unidadesPorBandeja = info?.unidadesPorBandeja ?? 30
+
+  const d = calcularDesglose(Math.abs(cantidad ?? 0), unidadesPorCaja, unidadesPorBandeja)
+  return formatearDesglose(d)
 }
+
 
 const formatFecha = (fecha: string): string => {
   if (!fecha) return '-'
@@ -60,11 +68,14 @@ export default function Dashboard() {
   const [showValeDetalle, setShowValeDetalle] = useState(false)
   const [valeDetalle, setValeDetalle] = useState<any | undefined>(undefined)
   const [showSkuHistorial, setShowSkuHistorial] = useState(false)
-  const [skuHistorial, setSkuHistorial] = useState<any | undefined>(undefined)
+  const [skuHistorialCodigo, setSkuHistorialCodigo] = useState<string>('')
+
 
   const { vales, loading: loadingVales } = useVales()
   const { stock, loading: loadingStock } = useStock()
-  const { movimientos, loading: loadingMov } = useMovimientos(300)
+  const { movimientos, loading: loadingMov } = useMovimientos({ limitCount: 300, soloValidados: false })
+
+
   const { contadores } = useContadores(hoy)
   const { skus: allSkus, loading: loadingSkus } = useSkus(true)
 
@@ -149,7 +160,7 @@ export default function Dashboard() {
       s.skuCodigo,
       getSkuNombre(s.skuCodigo),
       s.cantidad?.toLocaleString('es-CL') || 0,
-      desglose(s.cantidad),
+      desglose(s.skuCodigo, s.cantidad),
     ])
     const csvContent = [
       headers.join(','),
@@ -378,7 +389,8 @@ export default function Dashboard() {
                         {item.cantidad?.toLocaleString('es-CL') || 0}
                       </td>
                       <td className="px-4 py-3 text-sm text-gray-600">
-                        {desglose(item.cantidad)}
+                        {desglose(item.skuCodigo, item.cantidad)}
+
                       </td>
                       <td className="px-4 py-3 text-center text-[#16a34a]">
                         {getUltimoMovimiento(item.skuCodigo, 'ingreso')}
@@ -393,7 +405,7 @@ export default function Dashboard() {
                         <button
                           className="px-2 py-1 bg-blue-600 text-white rounded text-xs"
                           onClick={() => {
-                            setSkuHistorial(item)
+                            setSkuHistorialCodigo(item.skuCodigo)
                             setShowSkuHistorial(true)
                           }}
                         >
@@ -421,13 +433,14 @@ export default function Dashboard() {
       {showCartola && (
         <CartolaModal isOpen={showCartola} onClose={() => setShowCartola(false)} />
       )}
-      {showSkuHistorial && skuHistorial && (
-        <HistorialSkuModal
-          sku={skuHistorial}
-          isOpen={showSkuHistorial}
-          onClose={() => setShowSkuHistorial(false)}
-        />
-      )}
+        {showSkuHistorial && skuHistorialCodigo && (
+          <HistorialSkuModal
+            isOpen={showSkuHistorial}
+            onClose={() => setShowSkuHistorial(false)}
+            skuCodigo={skuHistorialCodigo}
+          />
+        )}
+
 
       {/* TABS SECCIÓN */}
       <div className="mb-8 bg-white shadow-sm border border-gray-200 rounded-lg">

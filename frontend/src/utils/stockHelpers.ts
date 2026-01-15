@@ -1,83 +1,99 @@
-// frontend/src/utils/stockHelpers.ts
+// src/utils/stockHelpers.ts
 
-import { doc, updateDoc, increment, getDoc, setDoc, Timestamp } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
+import { doc, getDoc, collection, Timestamp, writeBatch } from 'firebase/firestore'
 
-/**
- * Formatea un desglose para mostrar en la UI.
- * Ejemplo: { cajas: 10, bandejas: 5, unidades: 12 } → "10C 5B 12U"
- */
-export function formatearDesglose(desglose: { cajas: number, bandejas: number, unidades: number }): string {
-  if (!desglose) return '-'
-  const partes: string[] = []
-  if (desglose.cajas > 0) partes.push(`${desglose.cajas}C`)
-  if (desglose.bandejas > 0) partes.push(`${desglose.bandejas}B`)
-  if (desglose.unidades > 0) partes.push(`${desglose.unidades}U`)
-  return partes.length > 0 ? partes.join(' ') : '0U'
-}
+// Compatibilidad: si ya había imports desde stockHelpers.ts, no se rompen.
+export { calcularDesglose, formatearDesglose } from './desgloseHelpers'
 
-/**
- * Calcula el desglose de una cantidad en cajas, bandejas y unidades.
- */
-export function calcularDesglose(
-  cantidad: number,
-  unidadesPorCaja: number,
-  unidadesPorBandeja: number
-): { cajas: number, bandejas: number, unidades: number } {
-  const cajas = Math.floor(cantidad / unidadesPorCaja)
-  const resto1 = cantidad % unidadesPorCaja
-  const bandejas = Math.floor(resto1 / unidadesPorBandeja)
-  const unidades = resto1 % unidadesPorBandeja
-  return { cajas, bandejas, unidades }
-}
+type TipoAjuste = 'incrementar' | 'decrementar' | 'establecer'
 
-/**
- * Aplica un movimiento de stock para un SKU en base a vale.
- * Actualiza Firestore y registra el movimiento para tracking/auditoría.
- */
-export async function aplicarMovimiento(
-  sku: string,
-  cantidad: number,
-  tipo: 'ingreso' | 'egreso' | 'reingreso',
-  valeId: string
-) {
+export async function aplicarAjusteStock(params: {
+  skuCodigo: string // docId en /stock
+  skuNombre: string
+  tipoAjuste: TipoAjuste
+  cantidad: number
+  razon: string
+  observaciones?: string
+  usuarioId: string
+  usuarioNombre: string
+}): Promise<{ success: true } | { success: false; error: string }> {
   try {
-    const stockRef = doc(db, 'stock', sku)
-    const stockSnap = await getDoc(stockRef)
+    const {
+      skuCodigo,
+      skuNombre,
+      tipoAjuste,
+      cantidad,
+      razon,
+      observaciones,
+      usuarioId,
+      usuarioNombre,
+    } = params
 
+    if (!skuCodigo?.trim()) return { success: false, error: 'SKU inválido' }
+    if (!razon?.trim()) return { success: false, error: 'La razón es obligatoria' }
+
+    const stockRef = doc(db, 'stock', skuCodigo)
+    const stockSnap = await getDoc(stockRef)
+    const actual = stockSnap.exists() ? Number(stockSnap.data().cantidad ?? 0) : 0
+
+    const qty = Number(cantidad ?? 0)
+
+    let nuevaCantidad = actual
+    if (tipoAjuste === 'establecer') nuevaCantidad = qty
+    else if (tipoAjuste === 'incrementar') nuevaCantidad = actual + qty
+    else if (tipoAjuste === 'decrementar') nuevaCantidad = actual - qty
+
+    const delta = nuevaCantidad - actual
+
+    const ahora = new Date()
+    const timestamp = Timestamp.fromDate(ahora)
+    const fecha = ahora.toISOString().split('T')[0]
+    const hora = ahora.toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' })
+
+    const batch = writeBatch(db)
+
+    // 1) Upsert de stock (set si no existe, update si existe)
     if (!stockSnap.exists()) {
-      // Crear stock si no existe
-      await setDoc(stockRef, {
-        cantidad: tipo === 'ingreso' ? cantidad : tipo === 'egreso' ? -cantidad : 0,
-        createdAt: Timestamp.now(),
-        updatedAt: Timestamp.now(),
+      batch.set(stockRef, {
+        skuCodigo,
+        skuNombre: skuNombre || 'Desconocido',
+        cantidad: nuevaCantidad,
+        createdAt: timestamp,
+        updatedAt: timestamp,
       })
     } else {
-      // Actualizar stock existente
-      await updateDoc(stockRef, {
-        cantidad: increment(tipo === 'ingreso'
-          ? cantidad
-          : tipo === 'egreso'
-            ? -cantidad
-            : 0),
-        updatedAt: Timestamp.now(),
+      batch.update(stockRef, {
+        cantidad: nuevaCantidad,
+        updatedAt: timestamp,
       })
     }
 
-    // Registrar movimiento para historial/auditoría si así lo requiere la app
-    const movimientoRef = doc(db, 'movimientos', `${valeId}_${sku}_${Date.now()}`)
-    await setDoc(movimientoRef, {
-      valeId,
-      sku,
-      cantidad,
-      tipo,
-      fecha: Timestamp.now(),
-      referencia: 'Validación de Vale',
+    // 2) Movimiento SIEMPRE (aunque el stock no existiera antes)
+    const movimientoRef = doc(collection(db, 'movimientos'))
+    batch.set(movimientoRef, {
+      tipo: 'ajuste',
+      skuCodigo,
+      skuNombre: skuNombre || 'Desconocido',
+      cantidad: delta, // delta real (+ o -)
+      origenNombre: 'Sistema',
+      destinoNombre: 'Bodega',
+      valeId: movimientoRef.id, // no hay vale real; usamos el id del movimiento
+      valeReferencia: 'AJUSTE',
+      valeEstado: 'validado',
+      fecha,
+      hora,
+      usuarioId,
+      usuarioNombre,
+      razon: razon.trim(),
+      observaciones: observaciones?.trim() || '',
+      createdAt: timestamp,
+      timestamp, // compat: algunos componentes aún leen timestamp
     })
 
-  } catch (err) {
-    // Manejo controlado de errores
-    console.error('Error en aplicarMovimiento', err)
-    throw err
+    await batch.commit()
+    return { success: true }
+  } catch (e: any) {
+    return { success: false, error: e?.message || 'Error al aplicar ajuste' }
   }
 }

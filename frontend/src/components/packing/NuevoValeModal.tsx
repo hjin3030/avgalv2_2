@@ -158,17 +158,28 @@ export default function NuevoValeModal({ isOpen, onClose, onValeCreated }: Nuevo
     setCreando(true)
 
     try {
-      await crearVale({
-        tipo: 'ingreso',
-        origenId: pabellonId,
-        origenNombre: pabellonNombre,
-        destinoId: 'bodega',
-        destinoNombre: 'Bodega',
-        detalles: productos,
-        comentario: comentario.trim() || undefined,
-        usuarioCreadorId: profile.uid,
-        usuarioCreadorNombre: profile.nombre
-      })
+          await crearVale({
+      tipo: 'ingreso',
+
+      origenId: 'packing',
+      origenNombre: 'Packing',
+
+      pabellonId,
+      pabellonNombre,
+
+      destinoId: 'bodega',
+      destinoNombre: 'Bodega',
+
+      detalles: productos,
+      comentario: comentario.trim() || undefined,
+
+      usuarioCreadorId: profile.uid,
+      usuarioCreadorNombre: profile.nombre,
+
+      skusCatalogo: skusActivos,
+    })
+
+
 
       alert('✅ Vale creado exitosamente')
       if (onValeCreated) onValeCreated()

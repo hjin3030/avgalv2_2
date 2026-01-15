@@ -14,6 +14,7 @@ import Configuracion from './pages/configuracion/configuracion'
 import Bodega from './pages/bodega/bodega'
 import Produccion from './pages/produccion/produccion'
 import TestFirestore from './pages/test-firestore'
+import SalaL from './pages/salaL/salaL'
 
 function App() {
   return (
@@ -60,6 +61,15 @@ function App() {
               }
             />
             <Route
+              path="/salaL"
+              element={
+                <PrivateRoute requiredModule="salaL">
+                  <SalaL />
+                </PrivateRoute>
+              }
+            />      
+
+            <Route
               path="/packing"
               element={
                 <PrivateRoute requiredModule="packing">
@@ -99,3 +109,4 @@ function App() {
 }
 
 export default App
+

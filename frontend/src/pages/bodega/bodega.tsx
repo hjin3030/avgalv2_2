@@ -7,11 +7,14 @@ import { useMovimientos } from '@/hooks/useMovimientos'
 import { useAuth } from '@/hooks/useAuth'
 import CrearValeModal from '@/components/bodega/CrearValeModal'
 import ValidarValeModal from '@/components/bodega/ValidarValeModal'
-import CartolaModal from '@/components/bodega/CartolaModal'
-import HistorialSkuModal from '@/components/bodega/HistorialSkuModal'
+import CartolaModal from '@/components/movimientos/CartolaModal'
+import HistorialSkuModal from '@/components/movimientos/HistorialSkuModal'
 import AjusteStockModal from '@/components/bodega/AjusteStockModal'
-import DetalleValeModal from '@/components/bodega/DetalleValeModal'
+import DetalleValeModal from '@/components/bodega/BodegaDetalleValeModal'
 import { todayDateString, justDate } from '@/utils/formatHelpers'
+import { calcularDesglose as calcDesglose, formatearDesglose } from '@/utils/desgloseHelpers'
+import { getSkuInfo } from '@/utils/constants'
+
 
 export default function BodegaPage() {
   const { profile } = useAuth()
@@ -54,6 +57,22 @@ export default function BodegaPage() {
     const sku = skus.find(s => s.codigo === codigo)
     return sku?.nombre || 'Desconocido'
   }
+
+    // Desglose correcto según SKU (usa catálogo inmutable)
+  const desglosePorSku = (skuCodigo: string, cantidad: number) => {
+    const info = getSkuInfo(skuCodigo)
+
+    // fallback si no existe en catálogo
+    const unidadesPorCaja = info?.unidadesPorCaja ?? 180
+    const unidadesPorBandeja = info?.unidadesPorBandeja ?? 30
+
+    return calcDesglose(Math.abs(cantidad ?? 0), unidadesPorCaja, unidadesPorBandeja)
+  }
+
+  const desgloseTextoPorSku = (skuCodigo: string, cantidad: number) => {
+    return formatearDesglose(desglosePorSku(skuCodigo, cantidad))
+  }
+
 
   const valesHoy = useMemo(() => {
     const hoy = todayDateString()
@@ -184,8 +203,9 @@ export default function BodegaPage() {
     tipo: 'ingreso' | 'egreso' | 'reingreso'
   ) => {
     const movsFiltrados = movimientos.filter(
-      m => m.skuCodigo === skuCodigo && m.tipo === tipo
-    )
+  (m) => (m.skuCodigo || m.sku) === skuCodigo && m.tipo === tipo
+)
+
     if (movsFiltrados.length === 0) return null
     const sorted = movsFiltrados.sort((a, b) => {
       const timeA = a.timestamp ? new Date(a.timestamp).getTime() : 0
@@ -197,13 +217,17 @@ export default function BodegaPage() {
 
   const formatMovimiento = (mov: any) => {
     if (!mov || mov.cantidad === undefined || mov.cantidad === null) return '-'
+
+    // En tu UI filtras por m.skuCodigo, pero en stockHelpers se registra como "sku".
+    // Soportamos ambas llaves para no romper. [file:7][file:4]
+    const skuCodigo = mov.skuCodigo || mov.sku || ''
     const cantidad = Math.abs(mov.cantidad)
     const signo = mov.cantidad < 0 ? '-' : '+'
-    const cajas = Math.floor(cantidad / 180)
-    const bandejas = Math.floor((cantidad % 180) / 15)
-    const unidades = cantidad % 15
-    return `${signo}${cantidad}U (${cajas}C ${bandejas}B ${unidades}U)`
+
+    const texto = desgloseTextoPorSku(skuCodigo, cantidad)
+    return `${signo}${cantidad}U (${texto})`
   }
+
 
   const handleOrdenarStock = (col) => {
     if (ordenColStock === col) setOrdenAscStock(!ordenAscStock)
@@ -423,11 +447,8 @@ export default function BodegaPage() {
                   </tr>
                 ) : (
                   stockOrdenado.map((item) => {
-                    const desglose = {
-                      cajas: Math.floor((item.cantidad || 0) / 180),
-                      bandejas: Math.floor(((item.cantidad || 0) % 180) / 15),
-                      unidades: (item.cantidad || 0) % 15
-                    }
+                    const desglose = desglosePorSku(item.skuCodigo, item.cantidad || 0)
+
                     const ultimoIngreso = getUltimoMovimiento(item.skuCodigo, 'ingreso')
                     const ultimoEgreso = getUltimoMovimiento(item.skuCodigo, 'egreso')
                     const ultimoReingreso = getUltimoMovimiento(item.skuCodigo, 'reingreso')
@@ -441,7 +462,8 @@ export default function BodegaPage() {
                           <div className="font-bold text-lg text-gray-900">{formatNumber(item.cantidad)} U</div>
                         </td>
                         <td className="border border-gray-200 p-3 text-center text-sm text-gray-700">
-                          {desglose.cajas}C · {desglose.bandejas}B · {desglose.unidades}U
+                          {formatearDesglose(desglose)}
+
                         </td>
                         <td className="border border-gray-200 p-3 text-center">
                           <span className="text-green-700 font-semibold text-sm">
