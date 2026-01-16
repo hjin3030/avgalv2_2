@@ -261,7 +261,7 @@ export interface AuditLog {
   usuarioId: string
   usuarioNombre: string
   accion: 'create' | 'update' | 'delete' | 'view'
-  modulo: 'skus' | 'pabellones' | 'destinos' | 'origenes' | 'transportistas' | 'vales' | 'stock' | 'usuarios' | 'bodega'
+  modulo: 'skus' | 'pabellones' | 'destinos' | 'origenes' | 'transportistas' | 'vales' | 'stock' | 'usuarios' | 'bodega' | 'salaL'
   documentoId: string
   cambios?: {
     antes?: any

@@ -315,7 +315,7 @@ export interface SkuCatalogItem {
   codigo: string
   nombre: string
   tipo: 'blanco' | 'color' | 'mixto'
-  calibre: 'primera' | 'segunda' | 'tercera' | 'cuarta' | 'extra' | 'jumbo' | 'sucio' | 'super extra' | 'trizados' | 'merma'
+  calibre: 'primera' | 'segunda' | 'tercera' | 'cuarta' | 'extra' | 'jumbo' | 'sucio' | 'super extra' | 'trizados' | 'merma' | 'sin calibre'
   unidadesPorCaja: number
   unidadesPorBandeja: number
 }
@@ -377,6 +377,14 @@ export const SKU_CATALOG: Record<string, SkuCatalogItem> = {
     unidadesPorCaja: 180,
     unidadesPorBandeja: 30
   },
+  'BLA SINCAL': {
+    codigo: 'BLA SINCAL',
+    nombre: 'blanco sin calibrar',
+    tipo: 'blanco',
+    calibre: 'sin calibre',
+    unidadesPorCaja: 180,
+    unidadesPorBandeja: 30
+  },
   'BLA SUPER': {
     codigo: 'BLA SUPER',
     nombre: 'blanco super',
@@ -393,6 +401,7 @@ export const SKU_CATALOG: Record<string, SkuCatalogItem> = {
     unidadesPorCaja: 180,
     unidadesPorBandeja: 30
   },
+
   'COL 1ERA': {
     codigo: 'COL 1ERA',
     nombre: 'color 1era',
@@ -449,6 +458,14 @@ export const SKU_CATALOG: Record<string, SkuCatalogItem> = {
     unidadesPorCaja: 180,
     unidadesPorBandeja: 30
   },
+  'COL SINCAL': {
+    codigo: 'COL SINCAL',
+    nombre: 'color sin calibrar',
+    tipo: 'color',
+    calibre: 'sin calibre',
+    unidadesPorCaja: 180,
+    unidadesPorBandeja: 30
+  },
   'COL SUPER': {
     codigo: 'COL SUPER',
     nombre: 'color super',
@@ -465,6 +482,7 @@ export const SKU_CATALOG: Record<string, SkuCatalogItem> = {
     unidadesPorCaja: 180,
     unidadesPorBandeja: 30
   },
+
   'DES': {
     codigo: 'DES',
     nombre: 'desecho',
@@ -472,8 +490,19 @@ export const SKU_CATALOG: Record<string, SkuCatalogItem> = {
     calibre: 'merma',
     unidadesPorCaja: 180,
     unidadesPorBandeja: 30
+  },
+
+  'OTRO': {
+    codigo: 'OTRO',
+    nombre: 'otro',
+    tipo: 'mixto',
+    calibre: 'merma',
+    unidadesPorCaja: 180,
+    unidadesPorBandeja: 30
   }
 }
+
+
 
 
 // Helper para obtener nombre del SKU
