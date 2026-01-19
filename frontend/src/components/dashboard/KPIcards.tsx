@@ -1,8 +1,9 @@
 // src/components/dashboard/KPIcards.tsx
 
 import { useMemo } from 'react'
-import type { Vale } from '../../hooks/useVales'   // ⚠️ Importa SIMPRE del HOOK, nunca lo declares local
+import type { Vale } from '../../hooks/useVales'
 import type { Stock } from '../../hooks/useStock'
+import { isSkuAnalitico } from '../../utils/constants'
 
 interface KPICardsProps {
   vales: Vale[]
@@ -10,30 +11,38 @@ interface KPICardsProps {
   contadoresPorPabellon?: Record<string, number>
 }
 
+// Fecha Chile YYYY-MM-DD (sin UTC)
+function fechaChileISO(date = new Date()) {
+  const y = date.getFullYear()
+  const m = String(date.getMonth() + 1).padStart(2, '0')
+  const d = String(date.getDate()).padStart(2, '0')
+  return `${y}-${m}-${d}`
+}
+
 export default function KPICards({ vales, stock, contadoresPorPabellon = {} }: KPICardsProps) {
-  const hoy = new Date().toISOString().split('T')[0]
-  const ayer = new Date(Date.now() - 86400000).toISOString().split('T')[0]
+  const hoy = fechaChileISO()
+  const ayer = fechaChileISO(new Date(Date.now() - 86400000))
 
   // ========================================
   // KPI 1: VALES POR TIPO (HOY VS AYER)
   // ========================================
   const valesKPI = useMemo(() => {
-    const valesHoy = vales.filter(v => v.fecha === hoy)
-    const valesAyer = vales.filter(v => v.fecha === ayer)
+    const valesHoy = vales.filter((v) => v.fecha === hoy)
+    const valesAyer = vales.filter((v) => v.fecha === ayer)
 
-    const hoyIngreso = valesHoy.filter(v => v.tipo === 'ingreso').length
-    const hoyEgreso = valesHoy.filter(v => v.tipo === 'egreso').length
-    const hoyReingreso = valesHoy.filter(v => v.tipo === 'reingreso').length
+    const hoyIngreso = valesHoy.filter((v) => v.tipo === 'ingreso').length
+    const hoyEgreso = valesHoy.filter((v) => v.tipo === 'egreso').length
+    const hoyReingreso = valesHoy.filter((v) => v.tipo === 'reingreso').length
     const hoyTotal = valesHoy.length
 
-    const ayerIngreso = valesAyer.filter(v => v.tipo === 'ingreso').length
-    const ayerEgreso = valesAyer.filter(v => v.tipo === 'egreso').length
-    const ayerReingreso = valesAyer.filter(v => v.tipo === 'reingreso').length
+    const ayerIngreso = valesAyer.filter((v) => v.tipo === 'ingreso').length
+    const ayerEgreso = valesAyer.filter((v) => v.tipo === 'egreso').length
+    const ayerReingreso = valesAyer.filter((v) => v.tipo === 'reingreso').length
     const ayerTotal = valesAyer.length
 
-    const calcVariacion = (hoy: number, ayer: number) => {
-      if (ayer === 0) return hoy > 0 ? 100 : 0
-      return ((hoy - ayer) / ayer) * 100
+    const calcVariacion = (hoyN: number, ayerN: number) => {
+      if (ayerN === 0) return hoyN > 0 ? 100 : 0
+      return ((hoyN - ayerN) / ayerN) * 100
     }
 
     return {
@@ -43,20 +52,22 @@ export default function KPICards({ vales, stock, contadoresPorPabellon = {} }: K
         ingreso: calcVariacion(hoyIngreso, ayerIngreso),
         egreso: calcVariacion(hoyEgreso, ayerEgreso),
         reingreso: calcVariacion(hoyReingreso, ayerReingreso),
-        total: calcVariacion(hoyTotal, ayerTotal)
-      }
+        total: calcVariacion(hoyTotal, ayerTotal),
+      },
     }
   }, [vales, hoy, ayer])
 
   // ========================================
-  // KPI 2: STOCK - MAYOR Y MENOR SKU
+  // KPI 2: STOCK - MAYOR Y MENOR SKU (FILTRADO)
   // ========================================
   const stockKPI = useMemo(() => {
-    const stockConCantidad = stock.filter(s => s.cantidad > 0)
+    const stockAnalitico = stock.filter((s) => isSkuAnalitico(s.skuCodigo))
+    const stockConCantidad = stockAnalitico.filter((s) => (s.cantidad || 0) > 0)
+
     if (stockConCantidad.length === 0) return null
 
-    const mayor = stockConCantidad.reduce((max, s) => s.cantidad > max.cantidad ? s : max)
-    const menor = stockConCantidad.reduce((min, s) => s.cantidad < min.cantidad ? s : min)
+    const mayor = stockConCantidad.reduce((max, s) => ((s.cantidad || 0) > (max.cantidad || 0) ? s : max))
+    const menor = stockConCantidad.reduce((min, s) => ((s.cantidad || 0) < (min.cantidad || 0) ? s : min))
 
     const calcDesglose = (cantidad: number) => {
       const cajas = Math.floor(cantidad / 180)
@@ -67,20 +78,20 @@ export default function KPICards({ vales, stock, contadoresPorPabellon = {} }: K
     }
 
     return {
-      total: stock.reduce((sum, s) => sum + s.cantidad, 0),
-      totalSKUs: stock.length,
+      total: stockAnalitico.reduce((sum, s) => sum + (s.cantidad || 0), 0),
+      totalSKUs: stockAnalitico.length,
       mayor: {
         sku: mayor.skuCodigo,
         nombre: mayor.skuNombre,
-        cantidad: mayor.cantidad,
-        desglose: calcDesglose(mayor.cantidad)
+        cantidad: mayor.cantidad || 0,
+        desglose: calcDesglose(mayor.cantidad || 0),
       },
       menor: {
         sku: menor.skuCodigo,
         nombre: menor.skuNombre,
-        cantidad: menor.cantidad,
-        desglose: calcDesglose(menor.cantidad)
-      }
+        cantidad: menor.cantidad || 0,
+        desglose: calcDesglose(menor.cantidad || 0),
+      },
     }
   }, [stock])
 
@@ -90,58 +101,49 @@ export default function KPICards({ vales, stock, contadoresPorPabellon = {} }: K
   const produccionKPI = useMemo(() => {
     const produccionHoy = Object.entries(contadoresPorPabellon).map(([pabellon, cantidad]) => ({
       pabellon,
-      cantidad
+      cantidad: Number(cantidad || 0),
     }))
 
     const totalHoy = produccionHoy.reduce((sum, p) => sum + p.cantidad, 0)
+
+    // (si después quieres “ayer”, debe venir de contadoresProduccion/{ayer} y no está en este componente)
     const totalAyer = 0
     const variacion = totalAyer > 0 ? ((totalHoy - totalAyer) / totalAyer) * 100 : 0
 
-    return {
-      totalHoy,
-      totalAyer,
-      variacion,
-      porPabellon: produccionHoy
-    }
+    return { totalHoy, totalAyer, variacion, porPabellon: produccionHoy }
   }, [contadoresPorPabellon])
 
   // ========================================
-  // KPI 4: EGRESO VS INGRESO+REINGRESO
+  // KPI 4: EGRESO VS INGRESO+REINGRESO (VALIDADOS)
   // ========================================
   const balanceKPI = useMemo(() => {
-    const valesHoy = vales.filter(v => v.fecha === hoy && v.estado === 'validado')
+    const valesHoy = vales.filter((v) => v.fecha === hoy && v.estado === 'validado')
 
     const totalEgreso = valesHoy
-      .filter(v => v.tipo === 'egreso')
-      .reduce((sum, v) => sum + (v.totalUnidades || 0), 0)
+      .filter((v) => v.tipo === 'egreso')
+      .reduce((sum, v) => sum + (Number(v.totalUnidades) || 0), 0)
 
     const totalIngresoReingreso = valesHoy
-      .filter(v => v.tipo === 'ingreso' || v.tipo === 'reingreso')
-      .reduce((sum, v) => sum + (v.totalUnidades || 0), 0)
+      .filter((v) => v.tipo === 'ingreso' || v.tipo === 'reingreso')
+      .reduce((sum, v) => sum + (Number(v.totalUnidades) || 0), 0)
 
     const balance = totalIngresoReingreso - totalEgreso
-    const balancePorcentaje = totalIngresoReingreso > 0 
-      ? (balance / totalIngresoReingreso) * 100 
-      : 0
+    const balancePorcentaje = totalIngresoReingreso > 0 ? (balance / totalIngresoReingreso) * 100 : 0
 
-    return {
-      egreso: totalEgreso,
-      ingresoReingreso: totalIngresoReingreso,
-      balance,
-      balancePorcentaje
-    }
+    return { egreso: totalEgreso, ingresoReingreso: totalIngresoReingreso, balance, balancePorcentaje }
   }, [vales, hoy])
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
-      {/* KPI 1: VALES POR TIPO */}
+      {/* KPI 1 */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow">
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-sm font-medium text-gray-600">Vales Hoy</h3>
           <span className="text-2xl">📋</span>
         </div>
+
         <p className="text-3xl font-bold text-gray-900 mb-3">{valesKPI.hoy.total}</p>
-        
+
         <div className="space-y-1.5 mb-3">
           <div className="flex justify-between items-center text-xs">
             <span className="text-gray-600">Ingreso:</span>
@@ -152,6 +154,7 @@ export default function KPICards({ vales, stock, contadoresPorPabellon = {} }: K
               </span>
             </div>
           </div>
+
           <div className="flex justify-between items-center text-xs">
             <span className="text-gray-600">Egreso:</span>
             <div className="flex items-center gap-2">
@@ -161,6 +164,7 @@ export default function KPICards({ vales, stock, contadoresPorPabellon = {} }: K
               </span>
             </div>
           </div>
+
           <div className="flex justify-between items-center text-xs">
             <span className="text-gray-600">Reingreso:</span>
             <div className="flex items-center gap-2">
@@ -174,22 +178,22 @@ export default function KPICards({ vales, stock, contadoresPorPabellon = {} }: K
 
         <div className="pt-2 border-t border-gray-200">
           <span className="text-xs text-gray-500">
-            Ayer: {valesKPI.ayer.total} vales ({valesKPI.variacion.total >= 0 ? '+' : ''}{valesKPI.variacion.total.toFixed(0)}%)
+            Ayer: {valesKPI.ayer.total} vales ({valesKPI.variacion.total >= 0 ? '+' : ''}
+            {valesKPI.variacion.total.toFixed(0)}%)
           </span>
         </div>
       </div>
 
-      {/* KPI 2: STOCK MAYOR/MENOR */}
+      {/* KPI 2 */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow">
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-sm font-medium text-gray-600">Stock Total</h3>
           <span className="text-2xl">📦</span>
         </div>
-        <p className="text-3xl font-bold text-gray-900 mb-3">
-          {stockKPI?.total.toLocaleString('es-CL') || 0}
-        </p>
 
-        {stockKPI && (
+        <p className="text-3xl font-bold text-gray-900 mb-3">{stockKPI?.total.toLocaleString('es-CL') || 0}</p>
+
+        {stockKPI ? (
           <div className="space-y-2">
             <div className="bg-green-50 border border-green-200 rounded p-2">
               <div className="text-xs text-gray-600 mb-1">Mayor Stock:</div>
@@ -206,29 +210,28 @@ export default function KPICards({ vales, stock, contadoresPorPabellon = {} }: K
                 {stockKPI.menor.desglose.cajas}C, {stockKPI.menor.desglose.bandejas}B, {stockKPI.menor.desglose.unidades}U
               </div>
             </div>
-          </div>
-        )}
 
-        {!stockKPI && (
-          <div className="text-center text-gray-500 text-sm py-4">
-            Sin datos de stock
+            <div className="text-[11px] text-gray-500 pt-1">
+              Excluye: DES, OTRO, BLA/COL MAN, BLA/COL SINCAL.
+            </div>
           </div>
+        ) : (
+          <div className="text-center text-gray-500 text-sm py-4">Sin datos de stock</div>
         )}
       </div>
 
-      {/* KPI 3: PRODUCCIÓN HOY */}
+      {/* KPI 3 */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow">
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-sm font-medium text-gray-600">Producción Hoy</h3>
           <span className="text-2xl">🥚</span>
         </div>
-        <p className="text-3xl font-bold text-gray-900 mb-3">
-          {produccionKPI.totalHoy.toLocaleString('es-CL')}
-        </p>
+
+        <p className="text-3xl font-bold text-gray-900 mb-3">{produccionKPI.totalHoy.toLocaleString('es-CL')}</p>
 
         {produccionKPI.porPabellon.length > 0 ? (
           <div className="space-y-1.5 mb-3">
-            {produccionKPI.porPabellon.map(p => (
+            {produccionKPI.porPabellon.map((p) => (
               <div key={p.pabellon} className="flex justify-between items-center text-xs">
                 <span className="text-gray-600">{p.pabellon}:</span>
                 <span className="font-semibold">{p.cantidad.toLocaleString('es-CL')}</span>
@@ -236,47 +239,42 @@ export default function KPICards({ vales, stock, contadoresPorPabellon = {} }: K
             ))}
           </div>
         ) : (
-          <div className="text-center text-gray-500 text-sm py-2">
-            Sin contadores registrados hoy
-          </div>
+          <div className="text-center text-gray-500 text-sm py-2">Sin contadores registrados hoy</div>
         )}
 
         <div className="pt-2 border-t border-gray-200">
           <span className={`text-xs ${produccionKPI.variacion >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-            {produccionKPI.totalAyer > 0 
+            {produccionKPI.totalAyer > 0
               ? `${produccionKPI.variacion >= 0 ? '▲' : '▼'} ${Math.abs(produccionKPI.variacion).toFixed(1)}% vs ayer`
-              : 'Sin datos de ayer'
-            }
+              : 'Sin datos de ayer'}
           </span>
         </div>
       </div>
 
-      {/* KPI 4: BALANCE EGRESO VS INGRESO+REINGRESO */}
+      {/* KPI 4 */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow">
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-sm font-medium text-gray-600">Balance Hoy</h3>
           <span className="text-2xl">⚖️</span>
         </div>
+
         <div className="space-y-3">
           <div>
             <div className="text-xs text-gray-600 mb-1">Entrada (Ing+Reing):</div>
-            <div className="text-2xl font-bold text-green-600">
-              {balanceKPI.ingresoReingreso.toLocaleString('es-CL')}
-            </div>
+            <div className="text-2xl font-bold text-green-600">{balanceKPI.ingresoReingreso.toLocaleString('es-CL')}</div>
           </div>
 
           <div>
             <div className="text-xs text-gray-600 mb-1">Salida (Egreso):</div>
-            <div className="text-2xl font-bold text-orange-600">
-              {balanceKPI.egreso.toLocaleString('es-CL')}
-            </div>
+            <div className="text-2xl font-bold text-orange-600">{balanceKPI.egreso.toLocaleString('es-CL')}</div>
           </div>
 
           <div className="pt-2 border-t border-gray-200">
             <div className="flex justify-between items-center">
               <span className="text-xs text-gray-600">Balance:</span>
               <span className={`text-lg font-bold ${balanceKPI.balance >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                {balanceKPI.balance >= 0 ? '+' : ''}{balanceKPI.balance.toLocaleString('es-CL')}
+                {balanceKPI.balance >= 0 ? '+' : ''}
+                {balanceKPI.balance.toLocaleString('es-CL')}
               </span>
             </div>
           </div>

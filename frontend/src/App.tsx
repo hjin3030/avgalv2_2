@@ -1,12 +1,16 @@
 // frontend/src/App.tsx
+
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+
 import { PublicRoute } from './components/routing/PublicRoute'
 import { PrivateRoute } from './components/routing/PrivateRoute'
 import { SidebarProvider } from './contexts/SidebarContext'
+
 import AppLayout from './components/layout/AppLayout'
 
 import Login from './pages/auth/login'
 import SinAcceso from './pages/auth/sinacceso'
+
 import Home from './pages/home/home'
 import Dashboard from './pages/dashboard/dashboard'
 import Packing from './pages/packing/packing'
@@ -31,19 +35,27 @@ function App() {
             }
           />
 
-          <Route path="/" element={<Navigate to="/home" replace />} />
           <Route path="/sin-acceso" element={<SinAcceso />} />
 
           {/* Protected routes with layout */}
-          <Route element={<AppLayout />}>
+          <Route
+            element={
+              <PrivateRoute>
+                <AppLayout />
+              </PrivateRoute>
+            }
+          >
+            <Route path="/" element={<Navigate to="/home" replace />} />
+
             <Route
               path="/home"
               element={
-                <PrivateRoute>
+                <PrivateRoute requiredModule="home">
                   <Home />
                 </PrivateRoute>
               }
             />
+
             <Route
               path="/dashboard"
               element={
@@ -52,6 +64,7 @@ function App() {
                 </PrivateRoute>
               }
             />
+
             <Route
               path="/bodega"
               element={
@@ -60,14 +73,6 @@ function App() {
                 </PrivateRoute>
               }
             />
-            <Route
-              path="/salaL"
-              element={
-                <PrivateRoute requiredModule="salaL">
-                  <SalaL />
-                </PrivateRoute>
-              }
-            />      
 
             <Route
               path="/packing"
@@ -77,6 +82,7 @@ function App() {
                 </PrivateRoute>
               }
             />
+
             <Route
               path="/produccion"
               element={
@@ -85,23 +91,38 @@ function App() {
                 </PrivateRoute>
               }
             />
+
             <Route
               path="/configuracion"
               element={
-                <PrivateRoute requiredModule="configuracion" requiredRoles={['admin', 'superadmin']}>
+                <PrivateRoute requiredModule="configuracion">
                   <Configuracion />
                 </PrivateRoute>
               }
             />
+
+            <Route
+              path="/salal"
+              element={
+                <PrivateRoute requiredModule="salaL">
+                  <SalaL />
+                </PrivateRoute>
+              }
+            />
+
+            {/* Recomendación: proteger más fuerte o mover a módulo separado */}
             <Route
               path="/test-firestore"
               element={
-                <PrivateRoute requiredRoles={['superadmin']}>
+                <PrivateRoute requiredModule="configuracion">
                   <TestFirestore />
                 </PrivateRoute>
               }
             />
           </Route>
+
+          {/* Fallback */}
+          <Route path="*" element={<Navigate to="/home" replace />} />
         </Routes>
       </SidebarProvider>
     </BrowserRouter>
@@ -109,4 +130,3 @@ function App() {
 }
 
 export default App
-

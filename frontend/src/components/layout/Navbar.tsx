@@ -19,6 +19,7 @@ export default function Navbar() {
       dashboard: 'Dashboard',
       bodega: 'Bodega',
       packing: 'Packing',
+      salaL: 'SalaL',
       produccion: 'Producción',
       configuracion: 'Configuración',
       'test-firestore': 'Pruebas Firestore'

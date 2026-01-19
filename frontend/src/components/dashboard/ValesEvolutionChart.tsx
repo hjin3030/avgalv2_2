@@ -9,92 +9,115 @@ import {
   CartesianGrid,
   Tooltip,
   Legend,
-  ResponsiveContainer
+  ResponsiveContainer,
 } from 'recharts'
 import { useVales } from '../../hooks/useVales'
 
-export default function ValesEvolutionBarChart() {
+type PeriodoDashboard = 'hoy' | '7d' | '30d' | 'mes'
+
+function fechaChileISO(date = new Date()) {
+  const y = date.getFullYear()
+  const m = String(date.getMonth() + 1).padStart(2, '0')
+  const d = String(date.getDate()).padStart(2, '0')
+  return `${y}-${m}-${d}`
+}
+
+function buildLastNDays(n: number) {
+  const end = new Date()
+  end.setHours(0, 0, 0, 0)
+  const start = new Date(end)
+  start.setDate(start.getDate() - (n - 1))
+
+  const out: string[] = []
+  for (let i = 0; i < n; i++) {
+    const dt = new Date(start)
+    dt.setDate(start.getDate() + i)
+    out.push(fechaChileISO(dt))
+  }
+  return out
+}
+
+function fechaLabelDDM(fechaISO: string) {
+  const [y, m, d] = String(fechaISO).split('-').map(Number)
+  if (!y || !m || !d) return fechaISO
+  return `${d}/${m}`
+}
+
+function getTitulo(periodo: PeriodoDashboard, days: number) {
+  if (periodo === 'hoy') return '📊 Evolución de Vales por Tipo (Hoy)'
+  if (periodo === 'mes') return '📊 Evolución de Vales por Tipo (Mes actual)'
+  return `📊 Evolución de Vales por Tipo (Últimos ${days} días)`
+}
+
+export default function ValesEvolutionBarChart({
+  days = 7,
+  periodo = '7d',
+}: {
+  days?: number
+  periodo?: PeriodoDashboard
+}) {
   const { vales, loading } = useVales()
 
   const chartData = useMemo(() => {
-    if (!vales.length) return []
+    const safeDays = Math.max(1, Math.min(62, Number(days || 7))) // tope defensivo
+    const dias = buildLastNDays(safeDays) // incluye hoy sí o sí
 
-    const hoy = new Date()
-    const hace7dias = new Date(hoy)
-    hace7dias.setDate(hoy.getDate() - 7)
-
-    const dataMap = new Map<string, { fecha: string; ingreso: number; egreso: number; reingreso: number; total: number }>()
-
-    for (let i = 0; i < 7; i++) {
-      const fecha = new Date(hace7dias)
-      fecha.setDate(hace7dias.getDate() + i)
-      const fechaStr = fecha.toISOString().split('T')[0]
-      dataMap.set(fechaStr, {
-        fecha: fechaStr,
+    const dataMap = new Map<string, any>()
+    dias.forEach((fecha) => {
+      dataMap.set(fecha, {
+        fecha,
+        fechaLabel: fechaLabelDDM(fecha),
         ingreso: 0,
         egreso: 0,
         reingreso: 0,
-        total: 0
+        total: 0,
       })
-    }
-
-    vales.forEach(vale => {
-      if (vale.fecha && dataMap.has(vale.fecha)) {
-        const entry = dataMap.get(vale.fecha)!
-        entry.total++
-        if (vale.tipo === 'ingreso') entry.ingreso++
-        else if (vale.tipo === 'egreso') entry.egreso++
-        else if (vale.tipo === 'reingreso') entry.reingreso++
-      }
     })
 
-    return Array.from(dataMap.values()).sort((a, b) => a.fecha.localeCompare(b.fecha))
-  }, [vales])
+    ;(vales || []).forEach((vale: any) => {
+      const f = String(vale.fecha || '')
+      if (!f || !dataMap.has(f)) return
+      const entry = dataMap.get(f)!
+      entry.total += 1
+      if (vale.tipo === 'ingreso') entry.ingreso += 1
+      else if (vale.tipo === 'egreso') entry.egreso += 1
+      else if (vale.tipo === 'reingreso') entry.reingreso += 1
+      dataMap.set(f, entry)
+    })
+
+    return dias.map((d) => dataMap.get(d))
+  }, [vales, days])
+
+  const titulo = getTitulo(periodo, days)
 
   if (loading) {
     return (
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-        <h3 className="text-lg font-semibold mb-4">📊 Evolución de Vales (Barras)</h3>
-        <div className="h-80 flex items-center justify-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
-        </div>
+      <div className="bg-white rounded-lg shadow p-4">
+        <h3 className="text-lg font-bold mb-2">{titulo}</h3>
+        <div className="text-gray-500">Cargando...</div>
       </div>
     )
   }
 
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-      <h3 className="text-lg font-semibold mb-4">📊 Evolución de Vales por Tipo (Últimos 7 días)</h3>
-      <ResponsiveContainer width="100%" height={320}>
-        <BarChart data={chartData} margin={{ top: 5, right: 30, left: 0, bottom: 5 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-          <XAxis
-            dataKey="fecha"
-            tickFormatter={(value) => {
-              const date = new Date(value)
-              return `${date.getDate()}/${date.getMonth() + 1}`
-            }}
-            stroke="#666"
-            style={{ fontSize: '12px' }}
-          />
-          <YAxis stroke="#666" style={{ fontSize: '12px' }} />
+    <div className="bg-white rounded-lg shadow p-4">
+      <h3 className="text-lg font-bold mb-3">{titulo}</h3>
+
+      <ResponsiveContainer width="100%" height={260}>
+        <BarChart data={chartData} margin={{ top: 10, right: 20, left: 0, bottom: 10 }}>
+          <CartesianGrid strokeDasharray="3 3" />
+          <XAxis dataKey="fechaLabel" />
+          <YAxis allowDecimals={false} />
           <Tooltip
-            contentStyle={{
-              backgroundColor: '#fff',
-              border: '1px solid #e5e7eb',
-              borderRadius: '8px',
-              padding: '8px 12px'
-            }}
-            labelFormatter={(value) => {
-              const date = new Date(value)
-              return `${date.getDate()}/${date.getMonth() + 1}/${date.getFullYear()}`
+            labelFormatter={(_, payload) => {
+              const row = payload?.[0]?.payload
+              return row?.fecha || ''
             }}
           />
-          <Legend wrapperStyle={{ fontSize: '14px' }} />
-          <Bar dataKey="ingreso" fill="#3b82f6" name="Ingresos" radius={[4, 4, 0, 0]} />
-          <Bar dataKey="egreso" fill="#f97316" name="Egresos" radius={[4, 4, 0, 0]} />
-          <Bar dataKey="reingreso" fill="#10b981" name="Reingresos" radius={[4, 4, 0, 0]} />
-          <Bar dataKey="total" fill="#6366f1" name="Total" radius={[4, 4, 0, 0]} />
+          <Legend />
+          <Bar dataKey="ingreso" name="Ingreso" fill="#3b82f6" />
+          <Bar dataKey="egreso" name="Egreso" fill="#f59e0b" />
+          <Bar dataKey="reingreso" name="Reingreso" fill="#10b981" />
         </BarChart>
       </ResponsiveContainer>
     </div>

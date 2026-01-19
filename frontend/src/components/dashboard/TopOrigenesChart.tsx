@@ -9,36 +9,63 @@ import {
   CartesianGrid,
   Tooltip,
   Legend,
-  ResponsiveContainer
+  ResponsiveContainer,
 } from 'recharts'
 import { useVales } from '../../hooks/useVales'
+
+function norm(s: any) {
+  return String(s || '').trim().toLowerCase()
+}
+
+function isPacking(origenNombre: any) {
+  const o = norm(origenNombre)
+  // Acepta variantes típicas
+  return o === 'packing' || o.startsWith('packing ')
+}
+
+function getOrigenComparacion(vale: any): string {
+  const origenNombre = String(vale.origenNombre || '').trim()
+  const pabellonNombre = String(vale.pabellonNombre || '').trim()
+  const pabellonId = String(vale.pabellonId || '').trim()
+
+  // Packing -> usar pabellón (porque packing es suma)
+  if (isPacking(origenNombre)) {
+    if (pabellonNombre) return pabellonNombre
+    if (pabellonId) return `Pab ${pabellonId}`
+    return 'Packing' // se excluirá más abajo
+  }
+
+  return origenNombre || 'Sin origen'
+}
 
 export default function TopOrigenesChart() {
   const { vales, loading } = useVales()
 
   const chartData = useMemo(() => {
-    if (!vales.length) return []
+    if (!vales?.length) return []
 
-    // Filtrar ingresos y reingresos
-    const ingresoReingreso = vales.filter(
-      v => (v.tipo === 'ingreso' || v.tipo === 'reingreso') && v.origenNombre
+    // Entradas = ingresos + reingresos
+    const entradas = (vales as any[]).filter(
+      (v) => (v.tipo === 'ingreso' || v.tipo === 'reingreso') && (v.origenNombre || v.pabellonNombre || v.pabellonId),
     )
 
     const origenesMap = new Map<string, { nombre: string; ingreso: number; reingreso: number; total: number }>()
 
-    ingresoReingreso.forEach(vale => {
-      const origen = vale.origenNombre || 'Sin origen'
-      if (!origenesMap.has(origen)) {
-        origenesMap.set(origen, { nombre: origen, ingreso: 0, reingreso: 0, total: 0 })
+    entradas.forEach((vale) => {
+      const key = getOrigenComparacion(vale)
+
+      // Excluir packing “macro”
+      if (isPacking(key)) return
+
+      if (!origenesMap.has(key)) {
+        origenesMap.set(key, { nombre: key, ingreso: 0, reingreso: 0, total: 0 })
       }
-      const entry = origenesMap.get(origen)!
-      const unidades = vale.totalUnidades || 0
-      
-      if (vale.tipo === 'ingreso') {
-        entry.ingreso += unidades
-      } else if (vale.tipo === 'reingreso') {
-        entry.reingreso += unidades
-      }
+
+      const entry = origenesMap.get(key)!
+      const unidades = Number(vale.totalUnidades || 0)
+
+      if (vale.tipo === 'ingreso') entry.ingreso += unidades
+      else if (vale.tipo === 'reingreso') entry.reingreso += unidades
       entry.total += unidades
     })
 
@@ -62,16 +89,14 @@ export default function TopOrigenesChart() {
     return (
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
         <h3 className="text-lg font-semibold mb-4">📥 Top 5 Orígenes (Entradas)</h3>
-        <div className="h-80 flex items-center justify-center text-gray-500">
-          Sin datos de ingreso/reingreso
-        </div>
+        <div className="h-80 flex items-center justify-center text-gray-500">Sin datos de ingreso/reingreso</div>
       </div>
     )
   }
 
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-      <h3 className="text-lg font-semibold mb-4">📥 Top 5 Orígenes (Ingreso + Reingreso)</h3>
+      <h3 className="text-lg font-semibold mb-4">📥 Top 5 Orígenes (Pabellones + Origenes)</h3>
       <ResponsiveContainer width="100%" height={320}>
         <BarChart data={chartData} margin={{ top: 5, right: 30, left: 0, bottom: 60 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
@@ -83,19 +108,15 @@ export default function TopOrigenesChart() {
             textAnchor="end"
             height={80}
           />
-          <YAxis
-            stroke="#666"
-            style={{ fontSize: '12px' }}
-            tickFormatter={(value) => value.toLocaleString('es-CL')}
-          />
+          <YAxis stroke="#666" style={{ fontSize: '12px' }} tickFormatter={(v) => Number(v).toLocaleString('es-CL')} />
           <Tooltip
             contentStyle={{
               backgroundColor: '#fff',
               border: '1px solid #e5e7eb',
               borderRadius: '8px',
-              padding: '8px 12px'
+              padding: '8px 12px',
             }}
-            formatter={(value: number) => value.toLocaleString('es-CL') + ' uds'}
+            formatter={(value: any) => `${Number(value).toLocaleString('es-CL')} uds`}
           />
           <Legend wrapperStyle={{ fontSize: '14px' }} />
           <Bar dataKey="ingreso" fill="#3b82f6" name="Ingreso" radius={[8, 8, 0, 0]} stackId="a" />

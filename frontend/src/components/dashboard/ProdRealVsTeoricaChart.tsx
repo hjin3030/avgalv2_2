@@ -1,34 +1,13 @@
 // src/components/dashboard/ProdRealVsTeoricaChart.tsx
 
 import { useMemo } from 'react'
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  Legend,
-} from 'recharts'
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts'
 import { useContadores } from '../../hooks/useContadores'
 import { useVales } from '../../hooks/useVales'
-import {
-  todayDateString,
-  formatNumber,
-  formatPercent,
-} from '../../utils/formatHelpers'
+import { usePabellones } from '../../hooks/usePabellones'
+import { formatNumber, formatPercent } from '../../utils/formatHelpers'
 
-// Pabellones automáticos (solo estos tienen producción teórica)
-const PABELLONES_AUTOMATICOS: { id: string; nombre: string }[] = [
-  { id: 'pab13', nombre: 'Pabellón 13' },
-  { id: 'pab14', nombre: 'Pabellón 14' },
-  { id: 'pab15', nombre: 'Pabellón 15' },
-]
-
-const PAB_IDS_AUTOMATICOS = PABELLONES_AUTOMATICOS.map((p) => p.id)
-
-interface ProdRow {
+type Row = {
   pabellonId: string
   pabellonNombre: string
   teorica: number
@@ -36,196 +15,121 @@ interface ProdRow {
   variacionPct: number
 }
 
+// Chile-safe hoy
+const hoyChileISO = () => {
+  const now = new Date()
+  const y = now.getFullYear()
+  const m = String(now.getMonth() + 1).padStart(2, '0')
+  const d = String(now.getDate()).padStart(2, '0')
+  return `${y}-${m}-${d}`
+}
+
 export default function ProdRealVsTeoricaChart() {
-  const hoyLocal = todayDateString()
+  const hoy = hoyChileISO()
 
-  // TEÓRICA: contadores del día actual (este hook ya recibe la fecha)
-  const { contadores, loading: loadingContadores } = useContadores(hoyLocal)
+  const { pabellones, loading: loadingPab } = usePabellones(true)
+  const { contadores, loading: loadingCont } = useContadores(hoy)
+  const { vales, loading: loadingVales } = useVales({ tipo: 'ingreso', estado: 'validado' })
 
-  // REAL: traemos vales y filtramos por fecha === hoyLocal en el componente
-  const { vales, loading: loadingVales } = useVales({
-    tipo: 'ingreso',
-    estado: 'validado',
-  })
+  const chartData: Row[] = useMemo(() => {
+    const pabs = (pabellones || []).filter((p: any) => p.activo !== false)
 
-  const chartData: ProdRow[] = useMemo(() => {
-    const map = new Map<string, ProdRow>()
-
-    // Inicializar filas para cada pabellón automático
-    PABELLONES_AUTOMATICOS.forEach((p) => {
+    // base: todos los pabellones (aunque no tengan contadores)
+    const map = new Map<string, Row>()
+    pabs.forEach((p: any) => {
       map.set(p.id, {
         pabellonId: p.id,
-        pabellonNombre: p.nombre,
+        pabellonNombre: p.nombre || p.id,
         teorica: 0,
         real: 0,
         variacionPct: 0,
       })
     })
 
-    // TEÓRICA desde contadores (día actual)
+    // teórica: contadores del día (si existen)
     if (contadores?.contadores?.length) {
       contadores.contadores.forEach((c: any) => {
-        const pabId: string = c.pabellonId || ''
-        if (!PAB_IDS_AUTOMATICOS.includes(pabId)) return
-
-        const definicion = PABELLONES_AUTOMATICOS.find((p) => p.id === pabId)
-        const pabellonNombre =
-          definicion?.nombre || c.pabellonNombre || pabId
-
-        const current = map.get(pabId) || {
-          pabellonId: pabId,
-          pabellonNombre,
-          teorica: 0,
-          real: 0,
-          variacionPct: 0,
+        const pabId = c.pabellonId
+        if (!pabId) return
+        const row = map.get(pabId)
+        if (!row) {
+          // por si existe contador de un pabellón no cargado (edge)
+          map.set(pabId, {
+            pabellonId: pabId,
+            pabellonNombre: c.pabellonNombre || pabId,
+            teorica: c.valor || 0,
+            real: 0,
+            variacionPct: 0,
+          })
+          return
         }
-
-        map.set(pabId, {
-          ...current,
-          teorica: current.teorica + (c.valor || 0),
-        })
+        row.teorica += c.valor || 0
       })
     }
 
-    // REAL desde vales, pero SOLO los del día actual
-    const valesHoy = (vales || []).filter(
-      (v: any) => v.fecha === hoyLocal,
-    )
+    // real: vales de ingreso validados del día (por fecha)
+    const valesHoy = (vales || []).filter((v: any) => v.fecha === hoy)
+    valesHoy.forEach((v: any) => {
+      const pabId = v.origenId || v.pabellonId || ''
+      if (!pabId) return
+      const row = map.get(pabId)
+      if (!row) return
 
-    if (valesHoy.length) {
-      valesHoy.forEach((v: any) => {
-        const pabId: string = v.origenId || ''
-        if (!PAB_IDS_AUTOMATICOS.includes(pabId)) return
-
-        const definicion = PABELLONES_AUTOMATICOS.find((p) => p.id === pabId)
-        const pabellonNombre =
-          definicion?.nombre || v.origenNombre || pabId
-
-        const totalVale = (v.detalles || []).reduce(
-          (acc: number, d: any) => acc + (d.totalUnidades || 0),
-          0,
-        )
-
-        const current = map.get(pabId) || {
-          pabellonId: pabId,
-          pabellonNombre,
-          teorica: 0,
-          real: 0,
-          variacionPct: 0,
-        }
-
-        map.set(pabId, {
-          ...current,
-          real: current.real + totalVale,
-        })
-      })
-    }
-
-    // Calcular variación
-    const rows = Array.from(map.values()).map((row) => {
-      let variacionPct = 0
-      if (row.teorica > 0) {
-        variacionPct = row.real / row.teorica - 1
-      }
-      return {
-        ...row,
-        variacionPct,
-      }
+      const totalVale = (v.detalles || []).reduce((acc: number, d: any) => acc + (d.totalUnidades || 0), 0)
+      row.real += totalVale
     })
 
-    // Si quieres ocultar filas totalmente en cero, descomenta:
-    // return rows.filter((r) => r.teorica > 0 || r.real > 0)
-    return rows
-  }, [contadores, vales, hoyLocal])
+    // variación
+    const rows = Array.from(map.values()).map((r) => {
+      const variacionPct = r.teorica > 0 ? r.real / r.teorica - 1 : 0
+      return { ...r, variacionPct }
+    })
 
-  const loading = loadingContadores || loadingVales
+    // orden: mayor real primero
+    rows.sort((a, b) => b.real - a.real)
+    return rows
+  }, [pabellones, contadores, vales, hoy])
+
+  const loading = loadingPab || loadingCont || loadingVales
 
   if (loading) {
     return (
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-        <h3 className="text-lg font-semibold mb-4">
-          📊 Prod. REAL vs TEÓRICA (Automáticos)
-        </h3>
-        <div className="h-80 flex items-center justify-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-500" />
-        </div>
+      <div className="bg-white rounded-lg shadow p-4">
+        <h3 className="text-lg font-bold mb-2">📊 Prod. REAL vs TEÓRICA (Hoy)</h3>
+        <div className="text-gray-500">Cargando producción...</div>
       </div>
     )
   }
 
   if (!chartData.length) {
     return (
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-        <h3 className="text-lg font-semibold mb-4">
-          📊 Prod. REAL vs TEÓRICA (Automáticos)
-        </h3>
-        <div className="h-80 flex items-center justify-center text-gray-500">
-          Sin datos de producción hoy para pabellones automáticos (13, 14, 15)
-        </div>
+      <div className="bg-white rounded-lg shadow p-4">
+        <h3 className="text-lg font-bold mb-2">📊 Prod. REAL vs TEÓRICA (Hoy)</h3>
+        <div className="text-gray-500">Sin datos.</div>
       </div>
     )
   }
 
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-      <h3 className="text-lg font-semibold mb-4">
-        📊 Prod. REAL vs TEÓRICA HOY (Pabs 13–14-15)
-      </h3>
+    <div className="bg-white rounded-lg shadow p-4">
+      <h3 className="text-lg font-bold mb-2">📊 Prod. REAL vs TEÓRICA (Hoy)</h3>
+
       <ResponsiveContainer width="100%" height={320}>
-        <BarChart
-          data={chartData}
-          margin={{ top: 5, right: 30, left: 0, bottom: 60 }}
-        >
-          <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-          <XAxis
-            dataKey="pabellonNombre"
-            stroke="#666"
-            style={{ fontSize: '11px' }}
-            angle={-45}
-            textAnchor="end"
-            height={80}
-          />
-          <YAxis
-            stroke="#666"
-            style={{ fontSize: '12px' }}
-            tickFormatter={(value: number) => formatNumber(value)}
-          />
+        <BarChart data={chartData} margin={{ top: 10, right: 20, left: 0, bottom: 30 }}>
+          <CartesianGrid strokeDasharray="3 3" />
+          <XAxis dataKey="pabellonNombre" interval={0} angle={-25} textAnchor="end" height={60} />
+          <YAxis />
           <Tooltip
-            formatter={(value: any, name: string) => {
-              if (name === 'variacionPct') {
-                return [
-                  formatPercent(value as number, 1),
-                  'Variación REAL vs TEÓRICA',
-                ]
-              }
-              if (name === 'teorica') {
-                return [
-                  `${formatNumber(Number(value))} unidades`,
-                  'Prod. teórica',
-                ]
-              }
-              if (name === 'real') {
-                return [
-                  `${formatNumber(Number(value))} unidades`,
-                  'Prod. real',
-                ]
-              }
-              return [`${formatNumber(Number(value))} unidades`, name]
+            formatter={(value: any, name: any, props: any) => {
+              if (name === 'variacionPct') return [formatPercent(Number(value), 1), 'Variación']
+              if (name === 'teorica') return [`${formatNumber(Number(value))} uds`, 'Teórica']
+              if (name === 'real') return [`${formatNumber(Number(value))} uds`, 'Real']
+              return [value, name]
             }}
           />
           <Legend />
-          <Bar
-            dataKey="teorica"
-            name="Prod. teórica"
-            fill="#3b82f6"
-            radius={[8, 8, 0, 0]}
-          />
-          <Bar
-            dataKey="real"
-            name="Prod. real"
-            fill="#22c55e"
-            radius={[8, 8, 0, 0]}
-          />
+          <Bar dataKey="teorica" name="Teórica" fill="#94a3b8" />
+          <Bar dataKey="real" name="Real" fill="#3b82f6" />
         </BarChart>
       </ResponsiveContainer>
     </div>

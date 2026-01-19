@@ -504,6 +504,23 @@ export const SKU_CATALOG: Record<string, SkuCatalogItem> = {
 
 
 
+// frontend/src/utils/constants.ts
+
+  export const SKUS_NO_ANALITICOS = new Set<string>([
+    'DES',
+    'OTRO',
+    'BLA MAN',
+    'COL MAN',
+    'BLA SINCAL',
+    'COL SINCAL',
+  ])
+
+  export const isSkuAnalitico = (skuCodigo?: string | null) => {
+    if (!skuCodigo) return false
+    return !SKUS_NO_ANALITICOS.has(skuCodigo.trim())
+  }
+
+
 
 // Helper para obtener nombre del SKU
 export const getSkuNombre = (codigo: string): string => {
@@ -541,6 +558,10 @@ export const PABELLONES_CON_PERDIDA = ['pabellon_13', 'pabellon_14', 'pabellon_1
  * Total: 18 contadores (6 por pabellón)
  */
 
+// frontend/src/utils/constants.ts
+
+// ... (mantén TODO tu archivo igual)
+
 export interface ContadorConfig {
   id: number
   pabellonId: string
@@ -550,25 +571,29 @@ export interface ContadorConfig {
   label: string
 }
 
-
+/**
+ * ✅ CONFIGURACIÓN DE CONTADORES AUTOMÁTICOS DE PRODUCCIÓN
+ * Cada pabellón automático tiene 3 líneas con 2 caras (A y B) => 6 contadores por pabellón
+ * Total actual: 18 contadores (3 pabellones automáticos)
+ */
 export const CONTADORES_PRODUCCION: ContadorConfig[] = [
-  // Pabellón 14 (Contadores 1-6)
+  // Pabellón 14 (1-6)
   { id: 1, pabellonId: 'pab14', pabellonNombre: 'Pabellón 14', linea: 1, cara: 'A', label: 'C1: Línea 1 Cara A' },
   { id: 2, pabellonId: 'pab14', pabellonNombre: 'Pabellón 14', linea: 1, cara: 'B', label: 'C2: Línea 1 Cara B' },
   { id: 3, pabellonId: 'pab14', pabellonNombre: 'Pabellón 14', linea: 2, cara: 'A', label: 'C3: Línea 2 Cara A' },
   { id: 4, pabellonId: 'pab14', pabellonNombre: 'Pabellón 14', linea: 2, cara: 'B', label: 'C4: Línea 2 Cara B' },
   { id: 5, pabellonId: 'pab14', pabellonNombre: 'Pabellón 14', linea: 3, cara: 'A', label: 'C5: Línea 3 Cara A' },
   { id: 6, pabellonId: 'pab14', pabellonNombre: 'Pabellón 14', linea: 3, cara: 'B', label: 'C6: Línea 3 Cara B' },
-  
-  // Pabellón 13 (Contadores 7-12)
+
+  // Pabellón 13 (7-12)
   { id: 7, pabellonId: 'pab13', pabellonNombre: 'Pabellón 13', linea: 1, cara: 'A', label: 'C7: Línea 1 Cara A' },
   { id: 8, pabellonId: 'pab13', pabellonNombre: 'Pabellón 13', linea: 1, cara: 'B', label: 'C8: Línea 1 Cara B' },
   { id: 9, pabellonId: 'pab13', pabellonNombre: 'Pabellón 13', linea: 2, cara: 'A', label: 'C9: Línea 2 Cara A' },
   { id: 10, pabellonId: 'pab13', pabellonNombre: 'Pabellón 13', linea: 2, cara: 'B', label: 'C10: Línea 2 Cara B' },
   { id: 11, pabellonId: 'pab13', pabellonNombre: 'Pabellón 13', linea: 3, cara: 'A', label: 'C11: Línea 3 Cara A' },
   { id: 12, pabellonId: 'pab13', pabellonNombre: 'Pabellón 13', linea: 3, cara: 'B', label: 'C12: Línea 3 Cara B' },
-  
-  // Pabellón 15 (Contadores 13-18)
+
+  // Pabellón 15 (13-18)
   { id: 13, pabellonId: 'pab15', pabellonNombre: 'Pabellón 15', linea: 1, cara: 'A', label: 'C13: Línea 1 Cara A' },
   { id: 14, pabellonId: 'pab15', pabellonNombre: 'Pabellón 15', linea: 1, cara: 'B', label: 'C14: Línea 1 Cara B' },
   { id: 15, pabellonId: 'pab15', pabellonNombre: 'Pabellón 15', linea: 2, cara: 'A', label: 'C15: Línea 2 Cara A' },
@@ -577,5 +602,4 @@ export const CONTADORES_PRODUCCION: ContadorConfig[] = [
   { id: 18, pabellonId: 'pab15', pabellonNombre: 'Pabellón 15', linea: 3, cara: 'B', label: 'C18: Línea 3 Cara B' },
 ]
 
-
-export const PABELLONES_AUTOMATICOS = ['pab14', 'pab13', 'pab15']
+export const PABELLONES_AUTOMATICOS = ['pab14', 'pab13', 'pab15'] as const

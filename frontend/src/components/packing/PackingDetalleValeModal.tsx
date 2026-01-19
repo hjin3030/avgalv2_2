@@ -1,7 +1,6 @@
 import React, { useMemo } from 'react'
 import { useSkus } from '@/hooks/useSkus'
 import { formatDate, formatearFechaHora } from '@/utils/formatHelpers'
-import { getSkuNombre as getSkuNombreHelper } from '@/utils/skuHelpers'
 
 interface DetalleValeModalProps {
   isOpen: boolean
@@ -9,11 +8,14 @@ interface DetalleValeModalProps {
   valeData: any
 }
 
-export default function BodegaDetalleValeModal({ isOpen, onClose, valeData }: DetalleValeModalProps) {
+export default function PackingDetalleValeModal({ isOpen, onClose, valeData }: DetalleValeModalProps) {
   const { skus } = useSkus()
   if (!isOpen || !valeData) return null
 
-  const getSkuNombre = (codigo: string) => getSkuNombreHelper(skus, codigo)
+  const getSkuNombre = (codigo: string) => {
+    const sku = skus.find(s => s.codigo === codigo)
+    return sku?.nombre || 'Desconocido'
+  }
 
   const obsCreacion = (valeData.comentario ?? '').toString().trim()
   const obsValidacion = (valeData.observaciones ?? '').toString().trim()
@@ -52,7 +54,11 @@ export default function BodegaDetalleValeModal({ isOpen, onClose, valeData }: De
       `}</style>
 
       <div className="print-modal-overlay bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto relative print-container">
-        <button onClick={onClose} className="no-print absolute top-4 right-4 text-gray-600 hover:text-black text-3xl font-bold" aria-label="Cerrar">
+        <button
+          onClick={onClose}
+          className="no-print absolute top-4 right-4 text-gray-600 hover:text-black text-3xl font-bold"
+          aria-label="Cerrar"
+        >
           &times;
         </button>
 
@@ -61,6 +67,7 @@ export default function BodegaDetalleValeModal({ isOpen, onClose, valeData }: De
             Detalle del Vale #{valeData.correlativoDia ?? 'N/A'}
           </h2>
 
+          {/* Orden solicitado */}
           <section className="mb-6 grid grid-cols-2 gap-3 text-gray-700 text-sm">
             <div><strong>Tipo:</strong> {valeData.tipo?.toUpperCase() || '-'}</div>
             <div><strong>Estado:</strong> {valeData.estado?.toUpperCase() || '-'}</div>
@@ -102,7 +109,7 @@ export default function BodegaDetalleValeModal({ isOpen, onClose, valeData }: De
                 {(valeData.detalles || []).map((detalle: any, i: number) => (
                   <tr key={i}>
                     <td className="border border-gray-300 p-2">{detalle.sku}</td>
-                    <td className="border border-gray-300 p-2">{detalle.skuNombre || getSkuNombre(detalle.sku)}</td>
+                    <td className="border border-gray-300 p-2">{getSkuNombre(detalle.sku)}</td>
                     <td className="border border-gray-300 p-2 text-center">{detalle.cajas ?? 0}</td>
                     <td className="border border-gray-300 p-2 text-center">{detalle.bandejas ?? 0}</td>
                     <td className="border border-gray-300 p-2 text-center">{detalle.unidades ?? 0}</td>

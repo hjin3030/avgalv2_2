@@ -68,6 +68,34 @@ export default function BodegaPage() {
   })
 
   // =========================
+  // Helpers para ORIGEN (Packing (PabXX))
+  // =========================
+  const getNombrePabellon = (id: any) => pabellones.find((p: any) => p.id === id)?.nombre || 'N/A'
+
+  const formatPabShort = (vale: any) => {
+    // Preferir pabellonId para formar "Pab14"
+    const pid = String(vale?.pabellonId ?? '').trim()
+    if (pid) return `Pab${pid}`
+
+    // Fallback: si solo viene el nombre "Pabellón 14" / "Pab14" / "14"
+    const pnom = String(vale?.pabellonNombre ?? '').trim()
+    if (!pnom) return ''
+    const m = pnom.match(/(\d+)/)
+    if (m?.[1]) return `Pab${m[1]}`
+    return pnom
+  }
+
+  const origenLabel = (vale: any) => {
+    const base = String(vale?.origenNombre ?? '').trim() || getNombrePabellon(vale?.origenId) || 'Bodega'
+    // Regla: en ingresos (origen típicamente Packing), si hay pabellón => "Packing (Pab14)"
+    if (String(vale?.tipo ?? '').toLowerCase() === 'ingreso') {
+      const pab = formatPabShort(vale)
+      if (pab) return `${base} (${pab})`
+    }
+    return base
+  }
+
+  // =========================
   // (A) Stock real (calibre)
   // =========================
   const CALIBRES_NO_STOCK_REAL = useMemo(() => new Set(['sucio', 'sin calibre', 'desecho', 'otro']), [])
@@ -82,7 +110,7 @@ export default function BodegaPage() {
   const skusStockReal = useMemo(() => skus.filter(skuEsStockReal), [skus])
 
   const skuOptionsStockReal = useMemo(() => {
-    return skusStockReal.map((s) => ({ codigo: s.codigo, nombre: s.nombre }))
+    return skusStockReal.map((s: any) => ({ codigo: s.codigo, nombre: s.nombre }))
   }, [skusStockReal])
 
   // ==========================================
@@ -103,26 +131,19 @@ export default function BodegaPage() {
     return () => unsub()
   }, [])
 
-
   const ESTADO_LAVADO_OK = 'LAVADOOK'
 
-  // Normaliza para que cualquier variante histórica ("Lavado OK", "LAVADO_OK", etc)
-  // se compare contra el único estado canónico "LAVADOOK"
   const normalizarEstado = (v: any) =>
     String(v ?? '')
       .trim()
       .toUpperCase()
-      .replace(/[\s_-]+/g, '') // quita espacios/guiones/underscores: "LAVADO_OK" => "LAVADOOK"
+      .replace(/[\s_-]+/g, '')
 
-
-
-    // Solo lavados (SINCAL listo) y no calibrados.
-    const lotesDisponiblesParaCalibrar = useMemo(() => {
-      return lotesSalaL
-        .filter((l) => normalizarEstado(l?.estado) === ESTADO_LAVADO_OK)
-        .filter((l) => !l?.calibracion?.timestampCalibracion)
-    }, [lotesSalaL])
-
+  const lotesDisponiblesParaCalibrar = useMemo(() => {
+    return lotesSalaL
+      .filter((l) => normalizarEstado(l?.estado) === ESTADO_LAVADO_OK)
+      .filter((l) => !l?.calibracion?.timestampCalibracion)
+  }, [lotesSalaL])
 
   useEffect(() => {
     if (!loteSalaLIdSeleccionado) return
@@ -167,7 +188,7 @@ export default function BodegaPage() {
 
   // Hook para obtener nombre de SKU desde la colección
   const getSkuNombre = (codigo: string) => {
-    const sku = skus.find((s) => s.codigo === codigo)
+    const sku = skus.find((s: any) => s.codigo === codigo)
     return sku?.nombre || 'Desconocido'
   }
 
@@ -185,19 +206,16 @@ export default function BodegaPage() {
 
   const valesHoy = useMemo(() => {
     const hoy = todayDateString()
-    return vales.filter((v) => {
+    return vales.filter((v: any) => {
       if (!v.fecha) return false
       return justDate(v.fecha) === hoy
     })
   }, [vales])
 
-  const getValeFechaActualizacion = (vale) => {
+  const getValeFechaActualizacion = (vale: any) => {
     if (vale.tipo === 'ingreso') {
       if (vale.fechaValidacion && vale.horaValidacion) {
-        return {
-          fecha: vale.fechaValidacion,
-          hora: vale.horaValidacion
-        }
+        return { fecha: vale.fechaValidacion, hora: vale.horaValidacion }
       }
       return { fecha: '', hora: '' }
     } else {
@@ -205,7 +223,7 @@ export default function BodegaPage() {
     }
   }
 
-  const handleOrdenarVales = (col) => {
+  const handleOrdenarVales = (col: string) => {
     if (ordenColVales === col) setOrdenAscVales(!ordenAscVales)
     else {
       setOrdenColVales(col)
@@ -215,7 +233,7 @@ export default function BodegaPage() {
 
   const valesHoyOrdenados = useMemo(() => {
     const arr = [...valesHoy]
-    arr.sort((a, b) => {
+    arr.sort((a: any, b: any) => {
       let resultado = 0
       switch (ordenColVales) {
         case 'nVale':
@@ -228,7 +246,8 @@ export default function BodegaPage() {
           resultado = (a.totalUnidades || 0) - (b.totalUnidades || 0)
           break
         case 'origen':
-          resultado = (a.origenNombre || '').localeCompare(b.origenNombre || '')
+          // Ordenar por el label final (incluye "(PabXX)" cuando aplique)
+          resultado = origenLabel(a).localeCompare(origenLabel(b))
           break
         case 'destino':
           resultado = (a.destinoNombre || '').localeCompare(b.destinoNombre || '')
@@ -239,9 +258,7 @@ export default function BodegaPage() {
         case 'actualizacion':
           resultado = (
             (getValeFechaActualizacion(a).fecha || '') + (getValeFechaActualizacion(a).hora || '')
-          ).localeCompare(
-            (getValeFechaActualizacion(b).fecha || '') + (getValeFechaActualizacion(b).hora || '')
-          )
+          ).localeCompare((getValeFechaActualizacion(b).fecha || '') + (getValeFechaActualizacion(b).hora || ''))
           break
         case 'estado':
           resultado = (a.estado || '').localeCompare(b.estado || '')
@@ -257,13 +274,12 @@ export default function BodegaPage() {
     return arr
   }, [valesHoy, ordenColVales, ordenAscVales])
 
-  const valesPendientes = valesHoy.filter((v) => v.estado === 'pendiente' && v.tipo === 'ingreso')
+  const valesPendientes = valesHoy.filter((v: any) => v.estado === 'pendiente' && v.tipo === 'ingreso')
 
-  const formatNumber = (num) => Number(num || 0).toLocaleString('es-CL')
-  const getNombrePabellon = (id) => pabellones.find((p) => p.id === id)?.nombre || 'N/A'
+  const formatNumber = (num: any) => Number(num || 0).toLocaleString('es-CL')
 
-  const getTipoBadge = (tipo) => {
-    const colores = {
+  const getTipoBadge = (tipo: any) => {
+    const colores: any = {
       ingreso: 'bg-green-100 text-green-800',
       egreso: 'bg-red-100 text-red-800',
       reingreso: 'bg-blue-100 text-blue-800'
@@ -275,8 +291,8 @@ export default function BodegaPage() {
     )
   }
 
-  const getEstadoBadge = (estado) => {
-    const colores = {
+  const getEstadoBadge = (estado: any) => {
+    const colores: any = {
       pendiente: 'bg-yellow-100 text-yellow-800',
       validado: 'bg-green-100 text-green-800',
       rechazado: 'bg-red-100 text-red-800'
@@ -288,9 +304,9 @@ export default function BodegaPage() {
     )
   }
 
-  const calcularDesglose = (detalles) => {
+  const calcularDesglose = (detalles: any[]) => {
     const t = { cajas: 0, bandejas: 0, unidades: 0 }
-    detalles?.forEach((d) => {
+    detalles?.forEach((d: any) => {
       t.cajas += d.cajas || 0
       t.bandejas += d.bandejas || 0
       t.unidades += d.unidades || 0
@@ -299,10 +315,10 @@ export default function BodegaPage() {
   }
 
   const getUltimoMovimiento = (skuCodigo: string, tipo: 'ingreso' | 'egreso' | 'reingreso') => {
-    const movsFiltrados = movimientos.filter((m) => (m.skuCodigo || m.sku) === skuCodigo && m.tipo === tipo)
+    const movsFiltrados = movimientos.filter((m: any) => (m.skuCodigo || m.sku) === skuCodigo && m.tipo === tipo)
 
     if (movsFiltrados.length === 0) return null
-    const sorted = movsFiltrados.sort((a, b) => {
+    const sorted = movsFiltrados.sort((a: any, b: any) => {
       const timeA = a.timestamp ? new Date(a.timestamp).getTime() : 0
       const timeB = b.timestamp ? new Date(b.timestamp).getTime() : 0
       return timeB - timeA
@@ -319,7 +335,7 @@ export default function BodegaPage() {
     return `${signo}${cantidad}U (${texto})`
   }
 
-  const handleOrdenarStock = (col) => {
+  const handleOrdenarStock = (col: string) => {
     if (ordenColStock === col) setOrdenAscStock(!ordenAscStock)
     else {
       setOrdenColStock(col)
@@ -328,12 +344,12 @@ export default function BodegaPage() {
   }
 
   const stockFiltrado = useMemo(() => {
-    const codigos = skusStockReal.map((s) => s.codigo)
-    return stock.filter((item) => codigos.includes(item.skuCodigo))
+    const codigos = skusStockReal.map((s: any) => s.codigo)
+    return stock.filter((item: any) => codigos.includes(item.skuCodigo))
   }, [stock, skusStockReal])
 
   const stockOrdenado = useMemo(() => {
-    return [...stockFiltrado].sort((a, b) => {
+    return [...stockFiltrado].sort((a: any, b: any) => {
       let r = 0
       if (ordenColStock === 'sku') r = (a.skuCodigo || '').localeCompare(b.skuCodigo || '')
       else if (ordenColStock === 'cantidad') r = (a.cantidad || 0) - (b.cantidad || 0)
@@ -341,12 +357,12 @@ export default function BodegaPage() {
     })
   }, [stockFiltrado, ordenColStock, ordenAscStock])
 
-  const handleVerDetalleVale = (vale) => {
+  const handleVerDetalleVale = (vale: any) => {
     setValeSeleccionado(vale)
     setMostrarDetalleValeModal(true)
   }
 
-  const handleValidar = (vale) => {
+  const handleValidar = (vale: any) => {
     setValeSeleccionado(vale)
     setMostrarValidarVale(true)
   }
@@ -378,7 +394,7 @@ export default function BodegaPage() {
             </div>
           </button>
 
-          {/* Calibrar (card similar, diferenciada) */}
+          {/* Calibrar */}
           {canViewCartola && (
             <div className="group relative overflow-hidden bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 text-white rounded-2xl shadow-2xl transition-all duration-300 transform hover:scale-105 p-8 w-full md:w-auto">
               <div className="flex items-center justify-between">
@@ -387,7 +403,6 @@ export default function BodegaPage() {
                   <h3 className="text-2xl font-bold mb-2">Calibrar</h3>
                   <p className="text-emerald-100 text-sm">Convertir SINCAL a SKU calibrado + desecho</p>
 
-                  {/* Selector mejorado */}
                   <div className="mt-4">
                     <div className="flex items-center justify-between mb-2">
                       <label className="text-sm font-semibold text-emerald-100">Lote SINCAL (lavado)</label>
@@ -446,460 +461,463 @@ export default function BodegaPage() {
         </div>
       </div>
 
-{/* Vales pendientes */}
-<div className="mb-6">
-  {valesPendientes.length > 0 ? (
-    <div className="bg-yellow-50 border-2 border-yellow-300 rounded-2xl shadow-xl p-6">
-      <div className="flex items-center gap-3 mb-4">
-        <div className="w-12 h-12 bg-yellow-400 rounded-full flex items-center justify-center">
-          <svg className="w-8 h-8 text-yellow-900" fill="currentColor" viewBox="0 0 20 20">
-            <path
-              fillRule="evenodd"
-              d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
-              clipRule="evenodd"
-            />
-          </svg>
-        </div>
-        <div>
-          <h3 className="text-xl font-bold text-yellow-900">
-            ⚠️ {valesPendientes.length} Vale(s) Pendiente(s) por Revisar
-          </h3>
-          <p className="text-sm text-yellow-700">Valida los vales de ingreso para actualizar el stock</p>
-        </div>
+      {/* Vales pendientes */}
+      <div className="mb-6">
+        {valesPendientes.length > 0 ? (
+          <div className="bg-yellow-50 border-2 border-yellow-300 rounded-2xl shadow-xl p-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-12 h-12 bg-yellow-400 rounded-full flex items-center justify-center">
+                <svg className="w-8 h-8 text-yellow-900" fill="currentColor" viewBox="0 0 20 20">
+                  <path
+                    fillRule="evenodd"
+                    d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
+                    clipRule="evenodd"
+                  />
+                </svg>
+              </div>
+              <div>
+                <h3 className="text-xl font-bold text-yellow-900">⚠️ {valesPendientes.length} Vale(s) Pendiente(s) por Revisar</h3>
+                <p className="text-sm text-yellow-700">Valida los vales de ingreso para actualizar el stock</p>
+              </div>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse border border-yellow-200">
+                <thead className="bg-yellow-200">
+                  <tr>
+                    <th className="border border-yellow-300 p-3 text-left font-bold text-yellow-900">N° VALE</th>
+                    <th className="border border-yellow-300 p-3 text-left font-bold text-yellow-900">TIPO</th>
+                    <th className="border border-yellow-300 p-3 text-left font-bold text-yellow-900">ORIGEN</th>
+                    <th className="border border-yellow-300 p-3 text-left font-bold text-yellow-900">DESTINO</th>
+                    <th className="border border-yellow-300 p-3 text-center font-bold text-yellow-900">TOTAL</th>
+                    <th className="border border-yellow-300 p-3 text-left font-bold text-yellow-900">CREADO POR</th>
+                    <th className="border border-yellow-300 p-3 text-center font-bold text-yellow-900">HORA</th>
+                    <th className="border border-yellow-300 p-3 text-center font-bold text-yellow-900">ACCIÓN</th>
+                  </tr>
+                </thead>
+
+                <tbody>
+                  {valesPendientes.map((vale: any) => {
+                    const desglose = calcularDesglose(vale.detalles)
+                    return (
+                      <tr key={vale.id} className="hover:bg-yellow-100">
+                        <td className="border border-yellow-200 p-3">
+                          <div className="font-mono font-bold text-blue-600">
+                            {vale.tipo?.toUpperCase()} #{vale.correlativoDia || 'N/A'}
+                          </div>
+                        </td>
+
+                        <td className="border border-yellow-200 p-3 text-center">{getTipoBadge(vale.tipo)}</td>
+
+                        <td className="border border-yellow-200 p-3">
+                          <span className="px-3 py-1 bg-purple-100 text-purple-800 rounded-full text-sm font-semibold">
+                            {origenLabel(vale)}
+                          </span>
+                        </td>
+
+                        <td className="border border-yellow-200 p-3 text-sm">{vale.destinoNombre || 'Bodega'}</td>
+
+                        <td className="border border-yellow-200 p-3 text-center">
+                          <div className="font-bold text-lg">{vale.totalUnidades?.toLocaleString('es-CL')} U</div>
+                          <div className="text-xs text-gray-500">
+                            {desglose.cajas}C · {desglose.bandejas}B · {desglose.unidades}U
+                          </div>
+                        </td>
+
+                        <td className="border border-yellow-200 p-3 text-sm">{vale.usuarioCreadorNombre || 'N/A'}</td>
+
+                        <td className="border border-yellow-200 p-3 text-center font-semibold">{vale.hora}</td>
+
+                        <td className="border border-yellow-200 p-3 text-center">
+                          <button
+                            onClick={() => handleValidar(vale)}
+                            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-semibold text-sm shadow-md"
+                          >
+                            ✓ Validar
+                          </button>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        ) : (
+          <div className="bg-green-50 border-2 border-green-300 rounded-2xl shadow-xl p-6">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 bg-green-400 rounded-full flex items-center justify-center">
+                <svg className="w-8 h-8 text-green-900" fill="currentColor" viewBox="0 0 20 20">
+                  <path
+                    fillRule="evenodd"
+                    d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                    clipRule="evenodd"
+                  />
+                </svg>
+              </div>
+              <div>
+                <h3 className="text-xl font-bold text-green-900">✓ No existen vales pendientes de recepción</h3>
+                <p className="text-sm text-green-700">Todos los vales han sido procesados correctamente</p>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
-      <div className="overflow-x-auto">
-        <table className="w-full border-collapse border border-yellow-200">
-          <thead className="bg-yellow-200">
-            <tr>
-              <th className="border border-yellow-300 p-3 text-left font-bold text-yellow-900">N° VALE</th>
-              <th className="border border-yellow-300 p-3 text-left font-bold text-yellow-900">TIPO</th>
-              <th className="border border-yellow-300 p-3 text-left font-bold text-yellow-900">ORIGEN</th>
-              <th className="border border-yellow-300 p-3 text-left font-bold text-yellow-900">DESTINO</th>
-              <th className="border border-yellow-300 p-3 text-center font-bold text-yellow-900">TOTAL</th>
-              <th className="border border-yellow-300 p-3 text-left font-bold text-yellow-900">CREADO POR</th>
-              <th className="border border-yellow-300 p-3 text-center font-bold text-yellow-900">HORA</th>
-              <th className="border border-yellow-300 p-3 text-center font-bold text-yellow-900">ACCIÓN</th>
-            </tr>
-          </thead>
-          <tbody>
-            {valesPendientes.map((vale) => {
-              const desglose = calcularDesglose(vale.detalles)
-              return (
-                <tr key={vale.id} className="hover:bg-yellow-100">
-                  <td className="border border-yellow-200 p-3">
-                    <div className="font-mono font-bold text-blue-600">
-                      {vale.tipo?.toUpperCase()} #{vale.correlativoDia || 'N/A'}
-                    </div>
-                  </td>
-                  <td className="border border-yellow-200 p-3 text-center">{getTipoBadge(vale.tipo)}</td>
-                  <td className="border border-yellow-200 p-3">
-                    <span className="px-3 py-1 bg-purple-100 text-purple-800 rounded-full text-sm font-semibold">
-                      {vale.origenNombre || getNombrePabellon(vale.origenId)}
-                    </span>
-                  </td>
-                  <td className="border border-yellow-200 p-3 text-sm">{vale.destinoNombre || 'Bodega'}</td>
-                  <td className="border border-yellow-200 p-3 text-center">
-                    <div className="font-bold text-lg">{vale.totalUnidades?.toLocaleString('es-CL')} U</div>
-                    <div className="text-xs text-gray-500">
-                      {desglose.cajas}C · {desglose.bandejas}B · {desglose.unidades}U
-                    </div>
-                  </td>
-                  <td className="border border-yellow-200 p-3 text-sm">{vale.usuarioCreadorNombre || 'N/A'}</td>
-                  <td className="border border-yellow-200 p-3 text-center font-semibold">{vale.hora}</td>
-                  <td className="border border-yellow-200 p-3 text-center">
-                    <button
-                      onClick={() => handleValidar(vale)}
-                      className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-semibold text-sm shadow-md"
-                    >
-                      ✓ Validar
-                    </button>
-                  </td>
+      {/* Stock */}
+      <div className="bg-white rounded-2xl shadow-xl p-6 mb-6">
+        <div className="flex justify-between items-center mb-4">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setStockColapsado(!stockColapsado)}
+              className="text-gray-600 hover:text-gray-900 transition-colors"
+              aria-label={stockColapsado ? 'Expandir stock' : 'Colapsar stock'}
+            >
+              <svg
+                className={`w-6 h-6 transition-transform ${stockColapsado ? '' : 'rotate-90'}`}
+                fill="currentColor"
+                viewBox="0 0 20 20"
+              >
+                <path
+                  fillRule="evenodd"
+                  d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z"
+                  clipRule="evenodd"
+                />
+              </svg>
+            </button>
+            <h2 className="text-2xl font-bold text-gray-900">📊 Stock en Tiempo Real</h2>
+          </div>
+
+          <div className="flex gap-3">
+            {canViewCartola && (
+              <button
+                onClick={() => setMostrarCartola(true)}
+                className="px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors font-semibold shadow-md"
+              >
+                📋 Ver Cartola
+              </button>
+            )}
+            {isSuperAdmin && (
+              <button
+                onClick={() => setMostrarAjusteStock(true)}
+                className="px-6 py-3 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors font-semibold shadow-md"
+              >
+                ⚙️ Ajuste Stock
+              </button>
+            )}
+          </div>
+        </div>
+
+        {!stockColapsado && (
+          <div className="overflow-x-auto">
+            <table className="w-full border-collapse border border-gray-200">
+              <thead className="bg-gradient-to-r from-gray-100 to-gray-200">
+                <tr>
+                  <th
+                    onClick={() => handleOrdenarStock('sku')}
+                    className="border border-gray-300 p-3 text-left font-bold text-gray-700 cursor-pointer hover:bg-gray-300"
+                  >
+                    SKU {ordenColStock === 'sku' && (ordenAscStock ? '▲' : '▼')}
+                  </th>
+                  <th
+                    onClick={() => handleOrdenarStock('cantidad')}
+                    className="border border-gray-300 p-3 text-center font-bold text-gray-700 cursor-pointer hover:bg-gray-300"
+                  >
+                    CANTIDAD {ordenColStock === 'cantidad' && (ordenAscStock ? '▲' : '▼')}
+                  </th>
+                  <th className="border border-gray-300 p-3 text-center font-bold text-gray-700">DESGLOSE</th>
+                  <th className="border border-gray-300 p-3 text-center font-bold text-gray-700">INGRESOS RECIENTES</th>
+                  <th className="border border-gray-300 p-3 text-center font-bold text-gray-700">EGRESOS RECIENTES</th>
+                  <th className="border border-gray-300 p-3 text-center font-bold text-gray-700">REINGRESOS RECIENTES</th>
+                  <th className="border border-gray-300 p-3 text-center font-bold text-gray-700">ACCIONES</th>
                 </tr>
-              )
-            })}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  ) : (
-    <div className="bg-green-50 border-2 border-green-300 rounded-2xl shadow-xl p-6">
-      <div className="flex items-center gap-3">
-        <div className="w-12 h-12 bg-green-400 rounded-full flex items-center justify-center">
-          <svg className="w-8 h-8 text-green-900" fill="currentColor" viewBox="0 0 20 20">
-            <path
-              fillRule="evenodd"
-              d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-              clipRule="evenodd"
-            />
-          </svg>
-        </div>
-        <div>
-          <h3 className="text-xl font-bold text-green-900">✓ No existen vales pendientes de recepción</h3>
-          <p className="text-sm text-green-700">Todos los vales han sido procesados correctamente</p>
-        </div>
-      </div>
-    </div>
-  )}
-</div>
+              </thead>
 
-{/* Stock */}
-<div className="bg-white rounded-2xl shadow-xl p-6 mb-6">
-  <div className="flex justify-between items-center mb-4">
-    <div className="flex items-center gap-3">
-      <button
-        onClick={() => setStockColapsado(!stockColapsado)}
-        className="text-gray-600 hover:text-gray-900 transition-colors"
-        aria-label={stockColapsado ? 'Expandir stock' : 'Colapsar stock'}
-      >
-        <svg
-          className={`w-6 h-6 transition-transform ${stockColapsado ? '' : 'rotate-90'}`}
-          fill="currentColor"
-          viewBox="0 0 20 20"
-        >
-          <path
-            fillRule="evenodd"
-            d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z"
-            clipRule="evenodd"
-          />
-        </svg>
-      </button>
-      <h2 className="text-2xl font-bold text-gray-900">📊 Stock en Tiempo Real</h2>
-    </div>
+              <tbody>
+                {stockOrdenado.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="border border-gray-200 p-8 text-center text-gray-500">
+                      <div className="text-6xl mb-4">📦</div>
+                      <p className="text-lg font-semibold">No hay stock registrado</p>
+                    </td>
+                  </tr>
+                ) : (
+                  stockOrdenado.map((item: any) => {
+                    const desglose = desglosePorSku(item.skuCodigo, item.cantidad || 0)
+                    const ultimoIngreso = getUltimoMovimiento(item.skuCodigo, 'ingreso')
+                    const ultimoEgreso = getUltimoMovimiento(item.skuCodigo, 'egreso')
+                    const ultimoReingreso = getUltimoMovimiento(item.skuCodigo, 'reingreso')
 
-    <div className="flex gap-3">
-      {canViewCartola && (
-        <button
-          onClick={() => setMostrarCartola(true)}
-          className="px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors font-semibold shadow-md"
-        >
-          📋 Ver Cartola
-        </button>
+                    return (
+                      <tr key={item.id} className="hover:bg-blue-50 transition-colors">
+                        <td className="border border-gray-200 p-3">
+                          <div className="font-mono font-bold text-blue-600">{item.skuCodigo}</div>
+                          <div className="text-xs text-gray-600">{getSkuNombre(item.skuCodigo)}</div>
+                        </td>
+
+                        <td className="border border-gray-200 p-3 text-center">
+                          <div className="font-bold text-lg text-gray-900">{formatNumber(item.cantidad)} U</div>
+                        </td>
+
+                        <td className="border border-gray-200 p-3 text-center text-sm text-gray-700">{formatearDesglose(desglose)}</td>
+
+                        <td className="border border-gray-200 p-3 text-center">
+                          <span className="text-green-700 font-semibold text-sm">{formatMovimiento(ultimoIngreso)}</span>
+                        </td>
+
+                        <td className="border border-gray-200 p-3 text-center">
+                          <span className="text-red-700 font-semibold text-sm">{formatMovimiento(ultimoEgreso)}</span>
+                        </td>
+
+                        <td className="border border-gray-200 p-3 text-center">
+                          <span className="text-blue-700 font-semibold text-sm">{formatMovimiento(ultimoReingreso)}</span>
+                        </td>
+
+                        <td className="border border-gray-200 p-3 text-center">
+                          {canViewCartola && (
+                            <button
+                              onClick={() => {
+                                setSkuSeleccionado(item.skuCodigo)
+                                setMostrarHistorialSku(true)
+                              }}
+                              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-semibold text-sm shadow-md"
+                            >
+                              📜 Historial
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    )
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* Vales del día */}
+      <div className="bg-white rounded-2xl shadow-xl p-6">
+        <div className="flex justify-between items-center mb-4">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setValesColapsado(!valesColapsado)}
+              className="text-gray-600 hover:text-gray-900 transition-colors"
+              aria-label={valesColapsado ? 'Expandir vales' : 'Colapsar vales'}
+            >
+              <svg
+                className={`w-6 h-6 transition-transform ${valesColapsado ? '' : 'rotate-90'}`}
+                fill="currentColor"
+                viewBox="0 0 20 20"
+              >
+                <path
+                  fillRule="evenodd"
+                  d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z"
+                  clipRule="evenodd"
+                />
+              </svg>
+            </button>
+            <h2 className="text-2xl font-bold text-gray-900">📋 Vales del Día</h2>
+          </div>
+          <div className="flex items-center gap-4">
+            <span className="text-sm text-gray-600">{todayDateString()}</span>
+            <span className="px-4 py-2 bg-blue-100 text-blue-800 rounded-lg font-bold">{valesHoy.length} vales</span>
+          </div>
+        </div>
+
+        {!valesColapsado && (
+          <div className="overflow-x-auto">
+            <table className="w-full border-collapse border border-gray-200">
+              <thead className="bg-gradient-to-r from-gray-100 to-gray-200">
+                <tr>
+                  <th
+                    onClick={() => handleOrdenarVales('nVale')}
+                    className="border border-gray-300 p-3 text-left font-bold text-gray-700 cursor-pointer hover:bg-gray-300"
+                  >
+                    N° VALE {ordenColVales === 'nVale' && (ordenAscVales ? '▲' : '▼')}
+                  </th>
+                  <th
+                    onClick={() => handleOrdenarVales('tipo')}
+                    className="border border-gray-300 p-3 text-left font-bold text-gray-700 cursor-pointer hover:bg-gray-300"
+                  >
+                    TIPO {ordenColVales === 'tipo' && (ordenAscVales ? '▲' : '▼')}
+                  </th>
+                  <th
+                    onClick={() => handleOrdenarVales('total')}
+                    className="border border-gray-300 p-3 text-center font-bold text-gray-700 cursor-pointer hover:bg-gray-300"
+                  >
+                    TOTAL {ordenColVales === 'total' && (ordenAscVales ? '▲' : '▼')}
+                  </th>
+                  <th
+                    onClick={() => handleOrdenarVales('origen')}
+                    className="border border-gray-300 p-3 text-left font-bold text-gray-700 cursor-pointer hover:bg-gray-300"
+                  >
+                    ORIGEN {ordenColVales === 'origen' && (ordenAscVales ? '▲' : '▼')}
+                  </th>
+                  <th
+                    onClick={() => handleOrdenarVales('destino')}
+                    className="border border-gray-300 p-3 text-left font-bold text-gray-700 cursor-pointer hover:bg-gray-300"
+                  >
+                    DESTINO {ordenColVales === 'destino' && (ordenAscVales ? '▲' : '▼')}
+                  </th>
+                  <th
+                    onClick={() => handleOrdenarVales('creacion')}
+                    className="border border-gray-300 p-3 text-left font-bold text-gray-700 cursor-pointer hover:bg-gray-300"
+                  >
+                    FECHA CREACIÓN {ordenColVales === 'creacion' && (ordenAscVales ? '▲' : '▼')}
+                  </th>
+                  <th
+                    onClick={() => handleOrdenarVales('actualizacion')}
+                    className="border border-gray-300 p-3 text-left font-bold text-gray-700 cursor-pointer hover:bg-gray-300"
+                  >
+                    FECHA ACTUALIZ. {ordenColVales === 'actualizacion' && (ordenAscVales ? '▲' : '▼')}
+                  </th>
+                  <th
+                    onClick={() => handleOrdenarVales('estado')}
+                    className="border border-gray-300 p-3 text-center font-bold text-gray-700 cursor-pointer hover:bg-gray-300"
+                  >
+                    ESTADO {ordenColVales === 'estado' && (ordenAscVales ? '▲' : '▼')}
+                  </th>
+                  <th
+                    onClick={() => handleOrdenarVales('creador')}
+                    className="border border-gray-300 p-3 text-left font-bold text-gray-700 cursor-pointer hover:bg-gray-300"
+                  >
+                    CREADO POR {ordenColVales === 'creador' && (ordenAscVales ? '▲' : '▼')}
+                  </th>
+                  <th className="border border-gray-300 p-3 text-center font-bold text-gray-700">ACCIÓN</th>
+                </tr>
+              </thead>
+
+              <tbody>
+                {valesHoyOrdenados.length === 0 ? (
+                  <tr>
+                    <td colSpan={10} className="border border-gray-200 p-8 text-center text-gray-500">
+                      <div className="text-6xl mb-4">📦</div>
+                      <p className="text-lg font-semibold">No hay vales registrados hoy</p>
+                      <p className="text-sm text-gray-400 mt-2">Los vales creados aparecerán aquí</p>
+                    </td>
+                  </tr>
+                ) : (
+                  valesHoyOrdenados.map((vale: any) => {
+                    const desglose = calcularDesglose(vale.detalles)
+                    const fechaAct = getValeFechaActualizacion(vale)
+
+                    return (
+                      <tr key={vale.id} className="hover:bg-blue-50 transition-colors">
+                        <td className="border border-gray-200 p-3">
+                          <div className="font-mono font-bold text-blue-600">
+                            {vale.tipo?.toUpperCase()} #{vale.correlativoDia || 'N/A'}
+                          </div>
+                          <div className="text-xs text-gray-500">{vale.id?.slice(0, 8)}</div>
+                        </td>
+
+                        <td className="border border-gray-200 p-3 text-center">{getTipoBadge(vale.tipo)}</td>
+
+                        <td className="border border-gray-200 p-3 text-center">
+                          <div className="font-bold text-lg text-gray-900">{vale.totalUnidades?.toLocaleString('es-CL')} U</div>
+                          <div className="text-xs text-gray-500 mt-1">
+                            {desglose.cajas}C · {desglose.bandejas}B · {desglose.unidades}U
+                          </div>
+                        </td>
+
+                        <td className="border border-gray-200 p-3 text-left">
+                          <span className="px-3 py-1 bg-purple-100 text-purple-800 rounded-full text-sm font-semibold">
+                            {origenLabel(vale)}
+                          </span>
+                        </td>
+
+                        <td className="border border-gray-200 p-3 text-sm">{vale.destinoNombre || 'Bodega'}</td>
+
+                        <td className="border border-gray-200 p-3">
+                          <div className="font-semibold">{vale.fecha}</div>
+                          <div className="text-sm text-gray-600">{vale.hora}</div>
+                        </td>
+
+                        <td className="border border-gray-200 p-3">
+                          <div className="font-semibold">{fechaAct.fecha || '-'}</div>
+                          <div className="text-sm text-gray-600">{fechaAct.hora || '-'}</div>
+                        </td>
+
+                        <td className="border border-gray-200 p-3 text-center">{getEstadoBadge(vale.estado)}</td>
+
+                        <td className="border border-gray-200 p-3 text-sm">{vale.usuarioCreadorNombre || 'N/A'}</td>
+
+                        <td className="border border-gray-200 p-3 text-center">
+                          <div className="flex flex-col gap-2">
+                            <button
+                              onClick={() => handleVerDetalleVale(vale)}
+                              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-semibold text-sm shadow-md"
+                            >
+                              👁️ Ver
+                            </button>
+
+                            {vale.estado === 'pendiente' && vale.tipo === 'ingreso' && (
+                              <button
+                                onClick={() => handleValidar(vale)}
+                                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-semibold text-sm shadow-md"
+                              >
+                                ✓ Validar
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    )
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* Modales */}
+      {mostrarCrearVale && <CrearValeModal isOpen={mostrarCrearVale} onClose={() => setMostrarCrearVale(false)} />}
+
+      {mostrarValidarVale && valeSeleccionado && (
+        <ValidarValeModal
+          isOpen={mostrarValidarVale}
+          onClose={() => {
+            setMostrarValidarVale(false)
+            setValeSeleccionado(null)
+          }}
+          onConfirm={() => {
+            setMostrarValidarVale(false)
+            setValeSeleccionado(null)
+          }}
+          vale={valeSeleccionado}
+        />
       )}
-      {isSuperAdmin && (
-        <button
-          onClick={() => setMostrarAjusteStock(true)}
-          className="px-6 py-3 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors font-semibold shadow-md"
-        >
-          ⚙️ Ajuste Stock
-        </button>
+
+      {mostrarCartola && <CartolaModal isOpen={mostrarCartola} onClose={() => setMostrarCartola(false)} />}
+
+      {mostrarHistorialSku && (
+        <HistorialSkuModal
+          isOpen={mostrarHistorialSku}
+          onClose={() => setMostrarHistorialSku(false)}
+          skuCodigo={skuSeleccionado}
+        />
       )}
+
+      {mostrarAjusteStock && <AjusteStockModal isOpen={mostrarAjusteStock} onClose={() => setMostrarAjusteStock(false)} />}
+
+      {mostrarDetalleValeModal && valeSeleccionado && (
+        <DetalleValeModal
+          isOpen={mostrarDetalleValeModal}
+          onClose={() => setMostrarDetalleValeModal(false)}
+          valeData={valeSeleccionado}
+        />
+      )}
+
+      <CalibrarLoteSalaLModal
+        isOpen={mostrarCalibrarSalaL}
+        onClose={() => {
+          setMostrarCalibrarSalaL(false)
+          setLoteSalaLSeleccionado(null)
+        }}
+        lote={loteSalaLSeleccionado as any}
+        skuOptions={skuOptionsStockReal}
+      />
     </div>
-  </div>
-
-  {!stockColapsado && (
-    <div className="overflow-x-auto">
-      <table className="w-full border-collapse border border-gray-200">
-        <thead className="bg-gradient-to-r from-gray-100 to-gray-200">
-          <tr>
-            <th
-              onClick={() => handleOrdenarStock('sku')}
-              className="border border-gray-300 p-3 text-left font-bold text-gray-700 cursor-pointer hover:bg-gray-300"
-            >
-              SKU {ordenColStock === 'sku' && (ordenAscStock ? '▲' : '▼')}
-            </th>
-            <th
-              onClick={() => handleOrdenarStock('cantidad')}
-              className="border border-gray-300 p-3 text-center font-bold text-gray-700 cursor-pointer hover:bg-gray-300"
-            >
-              CANTIDAD {ordenColStock === 'cantidad' && (ordenAscStock ? '▲' : '▼')}
-            </th>
-            <th className="border border-gray-300 p-3 text-center font-bold text-gray-700">DESGLOSE</th>
-            <th className="border border-gray-300 p-3 text-center font-bold text-gray-700">INGRESOS RECIENTES</th>
-            <th className="border border-gray-300 p-3 text-center font-bold text-gray-700">EGRESOS RECIENTES</th>
-            <th className="border border-gray-300 p-3 text-center font-bold text-gray-700">REINGRESOS RECIENTES</th>
-            <th className="border border-gray-300 p-3 text-center font-bold text-gray-700">ACCIONES</th>
-          </tr>
-        </thead>
-
-        <tbody>
-          {stockOrdenado.length === 0 ? (
-            <tr>
-              <td colSpan={7} className="border border-gray-200 p-8 text-center text-gray-500">
-                <div className="text-6xl mb-4">📦</div>
-                <p className="text-lg font-semibold">No hay stock registrado</p>
-              </td>
-            </tr>
-          ) : (
-            stockOrdenado.map((item) => {
-              const desglose = desglosePorSku(item.skuCodigo, item.cantidad || 0)
-              const ultimoIngreso = getUltimoMovimiento(item.skuCodigo, 'ingreso')
-              const ultimoEgreso = getUltimoMovimiento(item.skuCodigo, 'egreso')
-              const ultimoReingreso = getUltimoMovimiento(item.skuCodigo, 'reingreso')
-
-              return (
-                <tr key={item.id} className="hover:bg-blue-50 transition-colors">
-                  <td className="border border-gray-200 p-3">
-                    <div className="font-mono font-bold text-blue-600">{item.skuCodigo}</div>
-                    <div className="text-xs text-gray-600">{getSkuNombre(item.skuCodigo)}</div>
-                  </td>
-
-                  <td className="border border-gray-200 p-3 text-center">
-                    <div className="font-bold text-lg text-gray-900">{formatNumber(item.cantidad)} U</div>
-                  </td>
-
-                  <td className="border border-gray-200 p-3 text-center text-sm text-gray-700">
-                    {formatearDesglose(desglose)}
-                  </td>
-
-                  <td className="border border-gray-200 p-3 text-center">
-                    <span className="text-green-700 font-semibold text-sm">{formatMovimiento(ultimoIngreso)}</span>
-                  </td>
-
-                  <td className="border border-gray-200 p-3 text-center">
-                    <span className="text-red-700 font-semibold text-sm">{formatMovimiento(ultimoEgreso)}</span>
-                  </td>
-
-                  <td className="border border-gray-200 p-3 text-center">
-                    <span className="text-blue-700 font-semibold text-sm">{formatMovimiento(ultimoReingreso)}</span>
-                  </td>
-
-                  <td className="border border-gray-200 p-3 text-center">
-                    {canViewCartola && (
-                      <button
-                        onClick={() => {
-                          setSkuSeleccionado(item.skuCodigo)
-                          setMostrarHistorialSku(true)
-                        }}
-                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-semibold text-sm shadow-md"
-                      >
-                        📜 Historial
-                      </button>
-                    )}
-                  </td>
-                </tr>
-              )
-            })
-          )}
-        </tbody>
-      </table>
-    </div>
-  )}
-</div>
-
-{/* Vales del día */}
-<div className="bg-white rounded-2xl shadow-xl p-6">
-  <div className="flex justify-between items-center mb-4">
-    <div className="flex items-center gap-3">
-      <button
-        onClick={() => setValesColapsado(!valesColapsado)}
-        className="text-gray-600 hover:text-gray-900 transition-colors"
-        aria-label={valesColapsado ? 'Expandir vales' : 'Colapsar vales'}
-      >
-        <svg
-          className={`w-6 h-6 transition-transform ${valesColapsado ? '' : 'rotate-90'}`}
-          fill="currentColor"
-          viewBox="0 0 20 20"
-        >
-          <path
-            fillRule="evenodd"
-            d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z"
-            clipRule="evenodd"
-          />
-        </svg>
-      </button>
-      <h2 className="text-2xl font-bold text-gray-900">📋 Vales del Día</h2>
-    </div>
-    <div className="flex items-center gap-4">
-      <span className="text-sm text-gray-600">{todayDateString()}</span>
-      <span className="px-4 py-2 bg-blue-100 text-blue-800 rounded-lg font-bold">{valesHoy.length} vales</span>
-    </div>
-  </div>
-
-  {!valesColapsado && (
-    <div className="overflow-x-auto">
-      <table className="w-full border-collapse border border-gray-200">
-        <thead className="bg-gradient-to-r from-gray-100 to-gray-200">
-          <tr>
-            <th
-              onClick={() => handleOrdenarVales('nVale')}
-              className="border border-gray-300 p-3 text-left font-bold text-gray-700 cursor-pointer hover:bg-gray-300"
-            >
-              N° VALE {ordenColVales === 'nVale' && (ordenAscVales ? '▲' : '▼')}
-            </th>
-            <th
-              onClick={() => handleOrdenarVales('tipo')}
-              className="border border-gray-300 p-3 text-left font-bold text-gray-700 cursor-pointer hover:bg-gray-300"
-            >
-              TIPO {ordenColVales === 'tipo' && (ordenAscVales ? '▲' : '▼')}
-            </th>
-            <th
-              onClick={() => handleOrdenarVales('total')}
-              className="border border-gray-300 p-3 text-center font-bold text-gray-700 cursor-pointer hover:bg-gray-300"
-            >
-              TOTAL {ordenColVales === 'total' && (ordenAscVales ? '▲' : '▼')}
-            </th>
-            <th
-              onClick={() => handleOrdenarVales('origen')}
-              className="border border-gray-300 p-3 text-left font-bold text-gray-700 cursor-pointer hover:bg-gray-300"
-            >
-              ORIGEN {ordenColVales === 'origen' && (ordenAscVales ? '▲' : '▼')}
-            </th>
-            <th
-              onClick={() => handleOrdenarVales('destino')}
-              className="border border-gray-300 p-3 text-left font-bold text-gray-700 cursor-pointer hover:bg-gray-300"
-            >
-              DESTINO {ordenColVales === 'destino' && (ordenAscVales ? '▲' : '▼')}
-            </th>
-            <th
-              onClick={() => handleOrdenarVales('creacion')}
-              className="border border-gray-300 p-3 text-left font-bold text-gray-700 cursor-pointer hover:bg-gray-300"
-            >
-              FECHA CREACIÓN {ordenColVales === 'creacion' && (ordenAscVales ? '▲' : '▼')}
-            </th>
-            <th
-              onClick={() => handleOrdenarVales('actualizacion')}
-              className="border border-gray-300 p-3 text-left font-bold text-gray-700 cursor-pointer hover:bg-gray-300"
-            >
-              FECHA ACTUALIZ. {ordenColVales === 'actualizacion' && (ordenAscVales ? '▲' : '▼')}
-            </th>
-            <th
-              onClick={() => handleOrdenarVales('estado')}
-              className="border border-gray-300 p-3 text-center font-bold text-gray-700 cursor-pointer hover:bg-gray-300"
-            >
-              ESTADO {ordenColVales === 'estado' && (ordenAscVales ? '▲' : '▼')}
-            </th>
-            <th
-              onClick={() => handleOrdenarVales('creador')}
-              className="border border-gray-300 p-3 text-left font-bold text-gray-700 cursor-pointer hover:bg-gray-300"
-            >
-              CREADO POR {ordenColVales === 'creador' && (ordenAscVales ? '▲' : '▼')}
-            </th>
-            <th className="border border-gray-300 p-3 text-center font-bold text-gray-700">ACCIÓN</th>
-          </tr>
-        </thead>
-
-        <tbody>
-          {valesHoyOrdenados.length === 0 ? (
-            <tr>
-              <td colSpan={10} className="border border-gray-200 p-8 text-center text-gray-500">
-                <div className="text-6xl mb-4">📦</div>
-                <p className="text-lg font-semibold">No hay vales registrados hoy</p>
-                <p className="text-sm text-gray-400 mt-2">Los vales creados aparecerán aquí</p>
-              </td>
-            </tr>
-          ) : (
-            valesHoyOrdenados.map((vale) => {
-              const desglose = calcularDesglose(vale.detalles)
-              const fechaAct = getValeFechaActualizacion(vale)
-
-              return (
-                <tr key={vale.id} className="hover:bg-blue-50 transition-colors">
-                  <td className="border border-gray-200 p-3">
-                    <div className="font-mono font-bold text-blue-600">
-                      {vale.tipo?.toUpperCase()} #{vale.correlativoDia || 'N/A'}
-                    </div>
-                    <div className="text-xs text-gray-500">{vale.id?.slice(0, 8)}</div>
-                  </td>
-
-                  <td className="border border-gray-200 p-3 text-center">{getTipoBadge(vale.tipo)}</td>
-
-                  <td className="border border-gray-200 p-3 text-center">
-                    <div className="font-bold text-lg text-gray-900">{vale.totalUnidades?.toLocaleString('es-CL')} U</div>
-                    <div className="text-xs text-gray-500 mt-1">
-                      {desglose.cajas}C · {desglose.bandejas}B · {desglose.unidades}U
-                    </div>
-                  </td>
-
-                  <td className="border border-gray-200 p-3 text-left">
-                    <span className="px-3 py-1 bg-purple-100 text-purple-800 rounded-full text-sm font-semibold">
-                      {vale.origenNombre || getNombrePabellon(vale.origenId) || 'Bodega'}
-                    </span>
-                  </td>
-
-                  <td className="border border-gray-200 p-3 text-sm">{vale.destinoNombre || 'Bodega'}</td>
-
-                  <td className="border border-gray-200 p-3">
-                    <div className="font-semibold">{vale.fecha}</div>
-                    <div className="text-sm text-gray-600">{vale.hora}</div>
-                  </td>
-
-                  <td className="border border-gray-200 p-3">
-                    <div className="font-semibold">{fechaAct.fecha || '-'}</div>
-                    <div className="text-sm text-gray-600">{fechaAct.hora || '-'}</div>
-                  </td>
-
-                  <td className="border border-gray-200 p-3 text-center">{getEstadoBadge(vale.estado)}</td>
-
-                  <td className="border border-gray-200 p-3 text-sm">{vale.usuarioCreadorNombre || 'N/A'}</td>
-
-                  <td className="border border-gray-200 p-3 text-center">
-                    <div className="flex flex-col gap-2">
-                      <button
-                        onClick={() => handleVerDetalleVale(vale)}
-                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-semibold text-sm shadow-md"
-                      >
-                        👁️ Ver
-                      </button>
-
-                      {vale.estado === 'pendiente' && vale.tipo === 'ingreso' && (
-                        <button
-                          onClick={() => handleValidar(vale)}
-                          className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-semibold text-sm shadow-md"
-                        >
-                          ✓ Validar
-                        </button>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              )
-            })
-          )}
-        </tbody>
-      </table>
-    </div>
-  )}
-</div>
-
-{/* Modales */}
-{mostrarCrearVale && <CrearValeModal isOpen={mostrarCrearVale} onClose={() => setMostrarCrearVale(false)} />}
-
-{mostrarValidarVale && valeSeleccionado && (
-  <ValidarValeModal
-    isOpen={mostrarValidarVale}
-    onClose={() => {
-      setMostrarValidarVale(false)
-      setValeSeleccionado(null)
-    }}
-    onConfirm={() => {
-      setMostrarValidarVale(false)
-      setValeSeleccionado(null)
-    }}
-    vale={valeSeleccionado}
-  />
-)}
-
-{mostrarCartola && <CartolaModal isOpen={mostrarCartola} onClose={() => setMostrarCartola(false)} />}
-
-{mostrarHistorialSku && (
-  <HistorialSkuModal
-    isOpen={mostrarHistorialSku}
-    onClose={() => setMostrarHistorialSku(false)}
-    skuCodigo={skuSeleccionado}
-  />
-)}
-
-{mostrarAjusteStock && <AjusteStockModal isOpen={mostrarAjusteStock} onClose={() => setMostrarAjusteStock(false)} />}
-
-{mostrarDetalleValeModal && valeSeleccionado && (
-  <DetalleValeModal
-    isOpen={mostrarDetalleValeModal}
-    onClose={() => setMostrarDetalleValeModal(false)}
-    valeData={valeSeleccionado}
-  />
-)}
-
-{/* Modal Calibración */}
-<CalibrarLoteSalaLModal
-  isOpen={mostrarCalibrarSalaL}
-  onClose={() => {
-    setMostrarCalibrarSalaL(false)
-    setLoteSalaLSeleccionado(null)
-  }}
-  lote={loteSalaLSeleccionado as any}
-  skuOptions={skuOptionsStockReal}
-/>
-</div>
-)
+  )
 }
